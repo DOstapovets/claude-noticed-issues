@@ -1,0 +1,4 @@
+# Worktrees agents work in (see docs/git_and_pr_conventions.md).
+.claude/worktrees/
+# The plugin API's declarations, laid by the engine when it hot-reloads this folder.
+.claude-plugin/types/
