@@ -297,8 +297,8 @@ const view = async ($: Api) => {
   return { list, mine, current, shown: current === 'session' ? mine : list }
 }
 
-// Rows above the groups: the pane's heading, and the tabs with a blank line either side.
-const headRows = (hasTabs: boolean) => (hasTabs ? 4 : 1)
+// Rows above the groups: the pane's heading and a blank row, then the tabs and another.
+const headRows = (hasTabs: boolean) => (hasTabs ? 4 : 2)
 
 // Splits `free` rows between groups that need `needs` rows each: one that
 // needs no more than an even share gets what it needs, and the rows it leaves
@@ -852,12 +852,12 @@ export const register: Register = (on, options) => {
 
     return (
       <Box flexDirection="column" height={bodyRows} overflow="hidden">
-        <Box justifyContent="space-between">
+        <Box justifyContent="space-between" marginBottom={1}>
           <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
           <Button key="feedback" plain dimColor label="✎ Feedback" onPress={() => startFeedback($)} />
         </Box>
         {mine.length > 0 && (
-          <Box gap={1} marginTop={1} marginBottom={1}>
+          <Box gap={1} marginBottom={1}>
             {tabButton('session', `This session ${mine.length}`)}
             {tabButton('all', `All ${list.length}`)}
           </Box>
