@@ -65,6 +65,8 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     session: 'session-a',
     // What `session.surfaces` answers.
     surfaces: ['terminal'] as string[],
+    // What `claude --bg` and `gh issue create` wait for before they answer.
+    hold: undefined as Promise<void> | undefined,
   }
   // The engine's own band, which the count must not replace.
   on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
@@ -87,7 +89,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
   on('session.repo', () => ({
     value: seen.repo === null ? null : { root: seen.repo, remote: seen.remote, internal: false, name: null },
   }))
-  on('process.run', (_, e) => {
+  on('process.run', async (_, e) => {
     if (e.argv[0] === 'git') {
       const dir = seen.git[e.argv[2] ?? '']
       return {
@@ -115,6 +117,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
       }
     }
     seen.argv.push(e.argv)
+    await seen.hold
     return {
       value: {
         exitCode: 0,
@@ -387,6 +390,23 @@ test('an odd answer from gh skips that issue and later passes still read it', GI
   expect(seen.viewed).toHaveLength(2)
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await lines(ui)).find(line => line.startsWith('#1 '))).toMatch(/^#1 ↗ #7 · open · 📋 To do/)
+  await ui.unmount()
+})
+
+test('a second press of ▶ while the first is starting starts no second session', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+
+  // `claude --bg` answers only once released.
+  let release = () => {}
+  seen.hold = new Promise<void>(resolve => (release = resolve))
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const first = ui.press({ key: 'session-1' })
+  const second = ui.press({ key: 'session-1' })
+  release()
+  await Promise.all([first, second])
+  expect(seen.argv).toHaveLength(1)
   await ui.unmount()
 })
 

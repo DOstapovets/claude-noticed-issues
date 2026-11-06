@@ -150,14 +150,18 @@ const background = async ($: Api, text: string, what: string) => {
   return sessionId
 }
 
+// Ids whose `claude --bg` is still running, so a second press does not start a second session.
+const starting = new Set<number>()
+
 const startSession = async ($: Api, id: number) => {
   const issue = (await read($, issues)).find(i => i.id === id)
 
-  if (!issue) {
+  if (!issue || starting.has(id)) {
     return
   }
 
-  const sessionId = await background($, prompt(issue), `#${id}`)
+  starting.add(id)
+  const sessionId = await background($, prompt(issue), `#${id}`).finally(() => starting.delete(id))
 
   if (!sessionId) {
     return
