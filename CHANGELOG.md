@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.22.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.21.0...v0.22.0) (2026-11-06)
+
+
+### Features
+
+* a Projects tab lists the other projects with a list and opens one read only ([90f73f4](https://github.com/DOstapovets/claude-noticed-issues/commit/90f73f4a6e8760e772108114d89d1605ebd84032))
+* in VS Code each project on the Projects tab is a card with its name as a dim chip ([6d0c80b](https://github.com/DOstapovets/claude-noticed-issues/commit/6d0c80bdb28c0f5d68b944a881aee6afab8d4a5c))
+* the Projects tab lists this project first, marked as this project ([c5e8b88](https://github.com/DOstapovets/claude-noticed-issues/commit/c5e8b8864cf3f53c19e17da023ae8f71850c757e))
+* the Projects tab stands at the right of the tabs' row, without a count, in a secondary color ([4f70459](https://github.com/DOstapovets/claude-noticed-issues/commit/4f70459f40b27a1271fc9e7566c662a936d68c33))
+
+
+### Bug Fixes
+
+* a card's detail is cut to three lines however its words wrap ([a289364](https://github.com/DOstapovets/claude-noticed-issues/commit/a2893642cbcd2079dddd54a656629018688f83a5))
+
 ## [0.21.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.20.0...v0.21.0) (2026-11-06)
 
 
