@@ -34,5 +34,5 @@ Conventions: docs/git_and_pr_conventions.md
 
 ---
 
-<!-- Version: the bump in .claude-plugin/plugin.json is made at merge time, as
-     its own `chore: X.Y.Z` commit (feat → minor, fix → patch). -->
+<!-- Version: do not edit .claude-plugin/plugin.json. release-please raises it
+     from the commit types (feat → minor, fix → patch) in its own release PR. -->

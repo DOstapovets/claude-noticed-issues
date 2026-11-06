@@ -31,6 +31,9 @@ hooks/register.tsx               The whole plugin: tools, /issues, the count, th
 hooks/register.test.tsx          Tests, with gh, git and claude --bg stubbed
 types/index.d.ts                 Issue, Priority, Tab, GithubStatus, Stored and the $.state contract
 docs/                            Conventions for contributors and agents
+.claude/settings.json            Project hooks; their scripts are in .claude/hooks/
+.github/workflows/               Checks, commit and PR-title lint, release-please
+release-please-config.json       How release-please versions the plugin
 ```
 
 ## Checks
@@ -123,7 +126,7 @@ opening a branch or writing a commit.** In short:
 - One branch per theme, named `feat/`, `fix/`, `docs/` or `chore/` plus a slug. Work
   in a worktree under `.claude/worktrees/`, never in the checkout Claude Code loads
   the plugin from.
-- Commit subjects follow Conventional Commits. Nothing bumps the version for you:
-  `feat` raises the minor version in `.claude-plugin/plugin.json`, `fix` the patch,
-  in a separate `chore: X.Y.Z` commit made at merge time.
-- `main` moves only by fast-forward. Never force-push it.
+- Commit subjects follow Conventional Commits; CI lints them. Never edit the version
+  in `.claude-plugin/plugin.json`: release-please raises it from the commit types
+  (`feat` → minor, `fix` → patch) in a release PR, and merging that PR is the release.
+- Your branches reach `main` by fast-forward. Never force-push it.

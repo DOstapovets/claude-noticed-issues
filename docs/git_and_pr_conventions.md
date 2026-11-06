@@ -3,9 +3,17 @@
 How work on this plugin is branched, committed, versioned and proposed. Written
 for people and for coding agents.
 
-This repository has no CI. No workflow lints commits, runs the tests or releases
-anything. Every check below is run locally, nothing blocks a merge for you, and a
-pull request has to say what was actually run.
+Four GitHub workflows back this up:
+
+| Workflow | Runs on | Does |
+| --- | --- | --- |
+| `checks.yml` | every PR, every push to `main` | `claude plugin validate .` and `claude plugin test .` on the latest Claude Code |
+| `commitlint.yml` | every PR, every push to `main` | lints each commit message (`commitlint.config.mjs`) |
+| `pr-title.yml` | PRs | requires the title to be a Conventional Commits subject |
+| `release-please.yml` | every push to `main` | opens or updates the release PR (see Versions) |
+
+None of them sees the pane, and the test kit does not draw it, so what a PR says
+about how a change looks is still only as good as what its author checked.
 
 ## Branches
 
@@ -55,8 +63,12 @@ Split only when the parts ship at different times, or one is urgent and the othe
 
 ## Commits
 
-[Conventional Commits](https://www.conventionalcommits.org/). Nothing lints them
-here, so the format is on you:
+[Conventional Commits](https://www.conventionalcommits.org/), linted by
+`commitlint.yml` against `@commitlint/config-conventional` with `subject-case` off (a
+subject may start with `AGENTS.md`). The lint runs in CI, after the push: nothing
+stops a bad message locally, so check it before you push.
+release-please reads the version from these messages, so a wrong type ships the wrong
+release:
 
 ```
 <type>(#<issue>): <what changed, imperative, no trailing period>
@@ -66,7 +78,8 @@ here, so the format is on you:
 <footer: BREAKING CHANGE: … when it applies>
 ```
 
-- **Types:** `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`, `style`.
+- **Types:** `feat`, `fix`, `perf`, `revert`, `docs`, `chore`, `refactor`, `test`,
+  `style`, `build`, `ci`.
 - **Scope** is optional. Use `(#N)` when there is an issue.
 - **Subject:** say what changed for the user where you can. `fix: an open group takes
   only the rows its cards need` is better than `fix: arrange()`.
@@ -78,34 +91,45 @@ only before the PR.
 ## Versions
 
 The version in `.claude-plugin/plugin.json` is the plugin's release number.
-`claude plugin list` shows it, and installs are recorded under it. A change that
-ships without a bump looks like the release before it. Nothing bumps the version for
-you, so at merge time:
+`claude plugin list` shows it, and installs are recorded under it. **Do not edit it by
+hand.** [release-please](https://github.com/googleapis/release-please) maintains it:
 
-| What is being merged | Bump |
-| --- | --- |
-| at least one `feat` | minor, `0.19.0` → `0.20.0` |
-| `fix` and `perf` only | patch, `0.20.0` → `0.20.1` |
-| `docs`, `chore`, `refactor`, `test`, `style` only | none |
-| a breaking change | minor while the version is `0.x`, with a `BREAKING CHANGE:` footer |
+- On every push to `main`, `release-please.yml` opens or updates one release PR,
+  titled `chore(main): release X.Y.Z`. That PR raises the version in `plugin.json` and
+  `.release-please-manifest.json` and adds the release's entry to `CHANGELOG.md`.
+- The version comes from the commits since the last release:
+
+  | Commits since the last release | Bump |
+  | --- | --- |
+  | at least one `feat` | minor, `0.20.0` → `0.21.0` |
+  | `fix`, `perf` or `revert` only | patch, `0.20.0` → `0.20.1` |
+  | `docs`, `chore`, `refactor`, `test`, `style`, `build`, `ci` only | none: no release PR |
+  | a `BREAKING CHANGE:` footer or a `!` after the type | minor while the version is `0.x` (`bump-minor-pre-major`) |
+
+- Merging the release PR is the release: it tags `vX.Y.Z` and publishes a GitHub
+  Release with the changelog. Merge it when you want the version out. Further merges
+  to `main` before that only update it.
+- The configuration is in `release-please-config.json`. `bootstrap-sha` keeps the
+  first release PR from walking the history from before 0.20.0.
 
 **What counts as breaking:** a stored issue that the new code cannot read, a renamed
 or removed tool (`note_issue`, `resolve_issue`) or tool parameter, a removed
 `userConfig` option, or a changed `/issues` argument.
 
-The bump is a commit of its own, `chore: X.Y.Z`, the last one on the branch before it
-merges. Make one per merge, covering everything that merge brings in, not one per
-feature commit.
+The release PR is opened with the workflow's own token, and GitHub starts no workflow
+for an event made with that token. So `checks.yml` does not run on the release PR;
+its commits were already checked on `main`.
 
 ## Merging
 
-- `main` moves only by fast-forward. Rebase the branch on `origin/main`, add the
-  version commit, then `git merge --ff-only`. Never force-push `main`.
+- Your branches go into `main` by fast-forward. Rebase on `origin/main`, then
+  `git merge --ff-only` and push. Never force-push `main`.
+- The release PR is merged on GitHub, like any PR.
 - The maintainer merges. An agent merges only when told to in the conversation, and
   that permission holds for that merge only.
 - After the merge, delete the branch on GitHub and locally.
 - If a contributor's PR is squash-merged, its title becomes the commit subject on
-  `main`, so the title must be a valid subject.
+  `main`. `pr-title.yml` checks that it is a valid one.
 
 ## Issues and pull requests are different documents
 
@@ -148,6 +172,7 @@ user and files one of these. Delete a heading rather than writing "N/A" under it
 
 - `claude plugin validate .` passes
 - `claude plugin test .` passes, with a new or updated test for what changed
+- The `checks` and `commitlint` workflows are green
 - `tsc` passes against the API declarations (see AGENTS.md, "Checks")
 - The README describes the new behavior
 - A new `$.state` or `$.store` value is declared in `types/index.d.ts`, and a new
@@ -159,4 +184,5 @@ user and files one of these. Delete a heading rather than writing "N/A" under it
 
 - A PR body that repeats its issue, or lists the changed files.
 - "Looks right" about a layout change that nobody opened in a session.
-- A `feat` merged without a version bump.
+- A hand-edited version in `plugin.json`.
+- A change that ships under `chore` or `docs`, which release-please does not release.
