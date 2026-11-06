@@ -161,14 +161,19 @@ const startSession = async ($: Api, id: number) => {
   }
 
   starting.add(id)
-  const sessionId = await background($, prompt(issue), `#${id}`).finally(() => starting.delete(id))
+  try {
+    const sessionId = await background($, prompt(issue), `#${id}`)
 
-  if (!sessionId) {
-    return
+    if (!sessionId) {
+      return
+    }
+
+    // Held until the id is saved: until then the pane still draws ▶.
+    await change($, list => list.map(i => (i.id === id ? { ...i, sessionId } : i)))
+    await $.ui.toast(`▶ #${id} → background session ${sessionId} · claude attach ${sessionId}`)
+  } finally {
+    starting.delete(id)
   }
-
-  await change($, list => list.map(i => (i.id === id ? { ...i, sessionId } : i)))
-  await $.ui.toast(`▶ #${id} → background session ${sessionId} · claude attach ${sessionId}`)
 }
 
 // Ids whose `gh issue create` is still running, so a second press does not file it twice.
