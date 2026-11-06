@@ -296,34 +296,78 @@ const view = async ($: Api) => {
 // Rows above the groups: the pane's heading, and the tabs with a blank line either side.
 const headRows = (hasTabs: boolean) => (hasTabs ? 4 : 1)
 
+// Splits `free` rows between groups that need `needs` rows each: one that
+// needs no more than an even share gets what it needs, and the rows it leaves
+// go to the rest, which share them evenly.
+const share = (needs: number[], free: number) => {
+  const rows = needs.map(() => 1)
+  let left = free
+  let rest = needs.map((_, i) => i)
+
+  while (rest.length > 0) {
+    const even = Math.floor(left / rest.length)
+    const fits = rest.filter(i => needs[i]! <= even)
+
+    if (fits.length === 0) {
+      let spare = left - even * rest.length
+      for (const i of rest) {
+        rows[i] = Math.max(1, even + (spare > 0 ? 1 : 0))
+        spare -= 1
+      }
+      break
+    }
+    for (const i of fits) {
+      rows[i] = needs[i]!
+      left -= needs[i]!
+    }
+    rest = rest.filter(i => !fits.includes(i))
+  }
+
+  return rows
+}
+
+const sum = (values: number[]) => values.reduce((a, b) => a + b, 0)
+
 // Each group's rows in the pane, top to bottom. The pane never scrolls as a
 // whole, so a heading stays on screen: a folded group takes its heading's
-// row, the open ones share the rest evenly and scroll their cards inside it.
-const arrange = (shown: Issue[], folded: Priority[], top: number, bodyRows: number) => {
+// row, an open one what its cards need, as far as the rows go round; one
+// that does not fit scrolls its cards inside its rows, never past the point
+// where the last of them shows.
+const arrange = (
+  shown: Issue[],
+  folded: Priority[],
+  top: number,
+  bodyRows: number,
+  columns: number,
+  confirming: number | null,
+) => {
   const groups = PRIORITIES.map((priority, i) => ({
     priority,
     items: shown.filter(issue => rank(issue) === i),
     isOpen: !folded.includes(priority.value),
   })).filter(g => g.items.length > 0)
-  const open = groups.filter(g => g.isOpen).length
-  const free = Math.max(0, bodyRows - top - (groups.length - open))
+  const heights = groups.map(g => g.items.map(issue => cardRows(issue, columns, issue.id === confirming)))
+  const open = groups.flatMap((g, i) => (g.isOpen ? [i] : []))
+  const free = Math.max(0, bodyRows - top - (groups.length - open.length))
+  const given = share(
+    open.map(i => 1 + sum(heights[i]!)),
+    free,
+  )
   let row = top
-  let spare = open > 0 ? free % open : 0
 
-  return groups.map(g => {
-    let rows = 1
-    if (g.isOpen) {
-      rows = Math.max(1, Math.floor(free / open) + (spare > 0 ? 1 : 0))
-      spare -= 1
-    }
-    const placed = { ...g, top: row, rows }
+  return groups.map((g, i) => {
+    const rows = g.isOpen ? given[open.indexOf(i)]! : 1
+    const cards = heights[i]!
+    let lastFirst = 0
+    while (lastFirst < cards.length - 1 && 1 + sum(cards.slice(lastFirst)) > rows) lastFirst += 1
+    const placed = { ...g, top: row, rows, lastFirst }
     row += rows
     return placed
   })
 }
 
-// The first card a group shows: at most its last, so it never scrolls empty.
-const firstCard = (at: number | undefined, count: number) => Math.max(0, Math.min(at ?? 0, count - 1))
+// The first card a group shows, scrolled no further than its last full view.
+const firstCard = (at: number | undefined, lastFirst: number) => Math.max(0, Math.min(at ?? 0, lastFirst))
 
 const toggleGroup = async ($: Api, priority: Priority) => {
   const next = await update($, collapsed, list =>
@@ -336,6 +380,43 @@ const toggleGroup = async ($: Api, priority: Priority) => {
 const DETAIL_LINES = 3
 
 const clip = (value: string, max: number) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value)
+
+// The rows `text` takes wrapped at `width`, word by word, a word wider than a row broken.
+const wrappedRows = (text: string, width: number) => {
+  let rows = 1
+  let used = 0
+
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const length = [...word].length
+    if (used > 0 && used + 1 + length <= width) {
+      used += 1 + length
+      continue
+    }
+    if (used > 0) rows += 1
+    rows += Math.floor(Math.max(0, length - 1) / width)
+    used = length % width || width
+  }
+
+  return rows
+}
+
+// The rows a card takes with `columns` inside its border. A plugin cannot
+// measure what it drew, so a group's rows are worked out from these.
+const cardRows = (issue: Issue, columns: number, isConfirming: boolean) => {
+  // The corner beside the heading: ` ✕ `, or `Delete? ✓ ↩ `, and a column before it.
+  const head = Math.max(1, columns - (isConfirming ? 14 : 4))
+  const title = issue.githubUrl ? 1 + wrappedRows(issue.title, head) : wrappedRows(`#${issue.id} ${issue.title}`, head)
+  const detail = issue.detail ? wrappedRows(clip(issue.detail, DETAIL_LINES * columns), columns) : 0
+
+  // With the border's two rows, the controls' row and the blank row below the card.
+  return title + (issue.file ? 1 : 0) + detail + 4
+}
+
+// Inside a card: its border and padding take two columns a side.
+const cardColumnsOf = (bodyColumns: number) => Math.max(20, bodyColumns - 4)
+
+// The pane's width as last drawn: `ui.scroll` does not carry it.
+let paneColumns = 60
 
 // Where reports about the plugin itself go.
 const PLUGIN_REPO = 'DOstapovets/claude-noticed-issues'
@@ -546,13 +627,20 @@ export const register: Register = (on, options) => {
   // first open one for the keys) a card at a time; the pane itself stays put.
   on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { mine, shown } = await view($)
-    const open = arrange(shown, await read($, collapsed), headRows(mine.length > 0), e.bodyRows).filter(g => g.isOpen)
+    const open = arrange(
+      shown,
+      await read($, collapsed),
+      headRows(mine.length > 0),
+      e.bodyRows,
+      cardColumnsOf(paneColumns),
+      await read($, deleting),
+    ).filter(g => g.isOpen)
     const row = e.pointer?.row
     const target = row === undefined ? open[0] : open.find(g => row >= g.top && row < g.top + g.rows)
 
     if (target && e.by !== 0) {
       const key = target.priority.value
-      await update($, scrolled, was => ({ ...was, [key]: firstCard((was[key] ?? 0) + Math.sign(e.by), target.items.length) }))
+      await update($, scrolled, was => ({ ...was, [key]: firstCard((was[key] ?? 0) + Math.sign(e.by), target.lastFirst) }))
     }
 
     return {}
@@ -562,8 +650,8 @@ export const register: Register = (on, options) => {
     const { Box, Text, Button, Link } = $.ui.resolve(e)
     const list = await read($, issues)
 
-    // Inside a card: its border and padding take two columns a side.
-    const cardColumns = Math.max(20, e.props.bodyColumns - 4)
+    paneColumns = e.props.bodyColumns
+    const cardColumns = cardColumnsOf(e.props.bodyColumns)
     const confirming = await read($, deleting)
 
     // The card's top right corner: a red ✕, which asks once before it deletes.
@@ -700,11 +788,11 @@ export const register: Register = (on, options) => {
     )
 
     const bodyRows = e.props.scroll.bodyRows
-    const groups = arrange(shown, await read($, collapsed), headRows(mine.length > 0), bodyRows)
+    const groups = arrange(shown, await read($, collapsed), headRows(mine.length > 0), bodyRows, cardColumns, confirming)
     const at = await read($, scrolled)
 
-    const group = ({ priority, items, isOpen, rows }: (typeof groups)[number]) => {
-      const first = firstCard(at[priority.value], items.length)
+    const group = ({ priority, items, isOpen, rows, lastFirst }: (typeof groups)[number]) => {
+      const first = firstCard(at[priority.value], lastFirst)
 
       return (
         <Box key={`priority-${priority.value}`} flexDirection="column" height={rows} flexShrink={0} overflow="hidden">

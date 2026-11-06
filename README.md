@@ -50,10 +50,12 @@ hidden while the list is empty, and any band another plugin draws there stays be
 **The "Noticed issues" pane** opens by itself when the list has something on it, and
 with `/issues`. Entries are grouped under **▾ High**, **▾ Medium** and **▾ Low**. Press
 a group's heading to fold it (`▸ High 2`) or open it again; a folded group keeps its
-place, so High stays on top. As in an accordion, the open groups share the pane's whole
-height evenly, even with one or two entries each. The pane itself never scrolls, so the
-group headings stay on screen: the wheel scrolls the cards of the group under the pointer,
-one card at a time, and the scroll keys the first open group. A scrolled group says how
+place, so High stays on top. An open group takes the rows its cards need. When
+they do not all fit, a group that needs no more than an even share keeps what it needs and
+the rest share the remaining rows evenly. The pane itself never scrolls, so the group
+headings stay on screen: the wheel scrolls the cards of the group under the pointer, one
+card at a time, and the scroll keys the first open group; a group stops once its last card
+shows. A scrolled group says how
 many cards are above, `▾ High 5 ↑ 2 above`. Which groups are folded is remembered across
 sessions and projects. Once the current session has noted something, two tabs sit at
 the top of the pane, **This session 2** and **All 5**: the first shows only the entries

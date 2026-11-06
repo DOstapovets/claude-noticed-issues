@@ -424,10 +424,10 @@ test('a priority group folds in its place, and stays folded', async ($, on) => {
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   await ui.press({ key: 'group-high' })
   expect(await lines(ui)).toEqual(['▸ High 1', '▾ Medium 1', '#2 Stale doc', '▾ Low 1', '#3 Typo in footer'])
-  // Open groups share the pane's free height evenly; a folded one takes only its heading.
-  // 40 rows: 4 for the heading and the tabs, 1 for High, 35 for the other two.
-  expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(18)
-  expect((await ui.find({ key: 'priority-low' }))?.props.height).toBe(17)
+  // An open group takes what its cards need, its heading and a card of five rows;
+  // a folded one only its heading.
+  expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(6)
+  expect((await ui.find({ key: 'priority-low' }))?.props.height).toBe(6)
   expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(1)
   await ui.press({ key: 'group-medium' })
   expect(await lines(ui)).toEqual(['▸ High 1', '▸ Medium 1', '▾ Low 1', '#3 Typo in footer'])
@@ -500,12 +500,14 @@ test('tabs show every issue or only those this session noted, once it has noted 
 test('each open group scrolls its cards under a heading that stays put', async ($, on) => {
   engine(on)
   await $.session.start(start('/proj/a'))
-  for (const n of [1, 2, 3]) await $.tool.call({ tool: NOTE, title: `Leak ${n}`, priority: 'high' })
+  for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) await $.tool.call({ tool: NOTE, title: `Leak ${n}`, priority: 'high' })
   for (const n of [1, 2]) await $.tool.call({ tool: NOTE, title: `Doc ${n}` })
 
-  // The pane never outgrows its rows, so the engine has nothing to scroll.
+  // The pane never outgrows its 40 rows, so the engine has nothing to scroll. Below
+  // the heading and the tabs, 36 rows: Medium needs 11 and gets them, High the other 25.
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(18)
+  expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(11)
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(25)
   const scroll = (by: number, row?: number) =>
     $.ui.scroll({
       component: 'Pane',
@@ -517,23 +519,23 @@ test('each open group scrolls its cards under a heading that stays put', async (
       origin: { kind: 'person' },
       ...(row === undefined ? {} : { pointer: { column: 10, row } }),
     } as never)
+  const high = async () => (await lines(ui)).filter(line => line.startsWith('#') && line.includes('Leak'))
 
-  // Rows 4 to 21 are High's, 22 to 39 Medium's.
+  // Rows 4 to 28 are High's, 29 to 39 Medium's; a tick moves one card.
   await scroll(1, 10)
-  expect(await lines(ui)).toEqual(['▾ High 3', '#2 Leak 2', '#3 Leak 3', '▾ Medium 2', '#4 Doc 1', '#5 Doc 2'])
+  expect((await high())[0]).toBe('#2 Leak 2')
   expect(await ui.find({ type: 'Text', text: / ↑ 1 above/ })).toBeDefined()
-  // Never past its last card, never above its first.
   await scroll(3, 10)
-  await scroll(1, 10)
-  expect((await lines(ui)).slice(0, 2)).toEqual(['▾ High 3', '#3 Leak 3'])
-  await scroll(-1, 30)
-  await scroll(1, 30)
-  expect((await lines(ui)).slice(2)).toEqual(['▾ Medium 2', '#5 Doc 2'])
-  // The scroll keys, with no pointer, move the first open group.
-  await scroll(-1)
-  await scroll(-1)
-  await scroll(-1)
-  expect((await lines(ui)).slice(0, 2)).toEqual(['▾ High 3', '#1 Leak 1'])
+  expect((await high())[0]).toBe('#3 Leak 3')
+  // No further than the view that shows the last card: 4 cards of 5 rows fit in 24.
+  for (let i = 0; i < 6; i += 1) await scroll(1, 10)
+  expect((await high())[0]).toBe('#5 Leak 5')
+  // Medium shows all its cards, so it does not scroll.
+  await scroll(1, 35)
+  expect((await lines(ui)).slice(-3)).toEqual(['▾ Medium 2', '#9 Doc 1', '#10 Doc 2'])
+  // The scroll keys, with no pointer, move the first open group, never above its first card.
+  for (let i = 0; i < 6; i += 1) await scroll(-1)
+  expect((await high())[0]).toBe('#1 Leak 1')
   await ui.unmount()
 })
 
