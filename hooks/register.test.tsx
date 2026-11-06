@@ -461,6 +461,11 @@ test('tabs show every issue or only those this session noted, once it has noted 
   const tabs = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await tabs.find({ key: 'tab-all' }))?.text).toBe('All 3')
   expect((await tabs.find({ key: 'tab-session' }))?.text).toBe('This session 1')
+  // This session's tab comes first.
+  expect((await tabs.findAll({})).flatMap(el => (el.key?.startsWith('tab-') ? [el.key] : []))).toEqual([
+    'tab-session',
+    'tab-all',
+  ])
   expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here', '▾ Medium 2', '#1 From before', '#2 Other session'])
   await tabs.press({ key: 'tab-session' })
   expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here'])

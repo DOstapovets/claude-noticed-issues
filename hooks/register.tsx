@@ -261,7 +261,7 @@ const refreshGithub = async ($: Api) => {
 const PRIORITIES = [
   { value: 'high', label: 'High', color: 'error' },
   { value: 'medium', label: 'Medium', color: 'warning' },
-  { value: 'low', label: 'Low', color: 'subtle' },
+  { value: 'low', label: 'Low', color: 'suggestion' },
 ] as const
 
 // An issue noted before priorities existed, or without one, is medium.
@@ -542,9 +542,9 @@ export const register: Register = (on, options) => {
           </Text>
         )}
         <Box justifyContent="space-between">
-          <Box>
+          <Box gap={2}>
             {issue.sessionId ? (
-              <Text color="cyan">▶ {issue.sessionId} </Text>
+              <Text color="cyan">▶ {issue.sessionId}</Text>
             ) : (
               <Button
                 key={`session-${issue.id}`}
@@ -562,19 +562,20 @@ export const register: Register = (on, options) => {
             )}
             <Button key={`delete-${issue.id}`} label="✕ Delete" dimColor onPress={() => remove($, issue.id)} />
           </Box>
-          {/* At the right edge, each arrow in the color of the group it moves the issue to. */}
-          <Box gap={3} paddingRight={1}>
+          {/* At the right edge, each arrow in the color of the group it moves the issue to,
+              padded with a space a side so it is easier to hit. */}
+          <Box gap={2}>
             {rank(issue) > 0 && (
               <Button key={`raise-${issue.id}`} plain onPress={() => shiftPriority($, issue.id, -1)}>
                 <Text color={PRIORITIES[rank(issue) - 1]!.color} bold>
-                  ▲
+                  {' ▲ '}
                 </Text>
               </Button>
             )}
             {rank(issue) < PRIORITIES.length - 1 && (
               <Button key={`lower-${issue.id}`} plain onPress={() => shiftPriority($, issue.id, 1)}>
                 <Text color={PRIORITIES[rank(issue) + 1]!.color} bold>
-                  ▼
+                  {' ▼ '}
                 </Text>
               </Button>
             )}
@@ -630,8 +631,8 @@ export const register: Register = (on, options) => {
         </Box>
         {mine.length > 0 && (
           <Box gap={3} marginBottom={1}>
-            {tabButton('all', `All ${list.length}`)}
             {tabButton('session', `This session ${mine.length}`)}
+            {tabButton('all', `All ${list.length}`)}
           </Box>
         )}
         {list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}

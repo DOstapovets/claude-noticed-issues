@@ -52,7 +52,7 @@ a group's heading to fold it (`▸ High 2`) or open it again; a folded group kee
 place, so High stays on top. As in an accordion, the open groups share the pane's whole
 height, even with one or two entries each. Which groups are folded is remembered across
 sessions and projects. Once the current session has noted something, two tabs sit at
-the top of the pane, **All 5** and **This session 2**: the second shows only the entries
+the top of the pane, **This session 2** and **All 5**: the first shows only the entries
 this session noted. The tab goes away again when none of them are left, and the pane
 then shows every entry. Each entry is a card with its number and title in bold, then, dimmed, the
 file on one line (shortened in the middle when it does not fit) and the detail cut to
