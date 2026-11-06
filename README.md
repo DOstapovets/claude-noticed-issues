@@ -37,7 +37,7 @@ Call `resolve_issue` once such an issue is fixed.
 
 ## What you get
 
-**Two tools for the model**, always listed in the prompt (not behind ToolSearch):
+**Three tools for the model**, the first two always listed in the prompt (not behind ToolSearch):
 
 | Tool | What it does |
 | --- | --- |
