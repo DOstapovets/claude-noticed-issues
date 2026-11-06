@@ -274,9 +274,9 @@ export async function renderPane($: Api, e: PaneRender) {
     </Box>
   )
 
-  // The current tab is filled with the accent color, the other drawn in it on the pane's background.
-  // VS Code fills every Button alike: there the current tab keeps the fill and the other is dim.
-  const tabButton = (value: Tab, label: string) =>
+  // The current tab is filled with its color, the accent's unless said, the other drawn in it on the
+  // pane's background. VS Code fills every Button alike: there the current tab keeps the fill and the other is dim.
+  const tabButton = (value: Tab, label: string, color: 'claude' | 'subtle' = 'claude') =>
     colorlessButtons ? (
       <Button
         key={`tab-${value}`}
@@ -288,11 +288,11 @@ export async function renderPane($: Api, e: PaneRender) {
     ) : (
       <Button key={`tab-${value}`} plain onPress={() => chooseTab($, value)}>
         {current === value ? (
-          <Text backgroundColor="claude" color="inverseText" bold>
+          <Text backgroundColor={color} color="inverseText" bold>
             {` ${label} `}
           </Text>
         ) : (
-          <Text color="claude">{` ${label} `}</Text>
+          <Text color={color}>{` ${label} `}</Text>
         )}
       </Button>
     )
@@ -308,11 +308,14 @@ export async function renderPane($: Api, e: PaneRender) {
       onPress={press => startFeedback($, whereRun(press.surface, press.surface === 'terminal' ? session.paneFullscreen : undefined))}
     />
   )
+  // Projects, which leads away from this project's list, stands apart at the right, in a secondary color.
   const tabs = (
-    <Box gap={1}>
-      {mine.length > 0 && tabButton('session', `This session ${mine.length}`)}
-      {tabButton('all', `All ${list.length}`)}
-      {others.length > 0 && tabButton('projects', `Projects ${others.length}`)}
+    <Box justifyContent="space-between" flexGrow={1}>
+      <Box gap={1}>
+        {mine.length > 0 && tabButton('session', `This session ${mine.length}`)}
+        {tabButton('all', `All ${list.length}`)}
+      </Box>
+      {others.length > 0 && tabButton('projects', 'Projects', 'subtle')}
     </Box>
   )
 
@@ -420,7 +423,7 @@ export async function renderPane($: Api, e: PaneRender) {
     <Box flexDirection="column" {...(fitsRows && !listsProjects ? { height: bodyRows, overflow: 'hidden' as const } : {})}>
       {titled ? (
         // VS Code heads the pane with its title already: there Feedback joins the tabs' row.
-        <Box justifyContent="space-between" marginBottom={1}>
+        <Box justifyContent="space-between" marginBottom={1} gap={2}>
           {hasTabs ? tabs : <Box />}
           {feedback}
         </Box>

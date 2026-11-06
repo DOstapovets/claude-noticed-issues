@@ -79,8 +79,9 @@ three lines. These are its controls:
 - **▲ / ▼**, at the card's right edge while the pointer is over the card, move it one
   priority up or down; each is drawn in the color of the group it moves the issue to.
 
-**Other projects.** Once another project has a list too, a **Projects 2** tab follows
-**All**, also when this project's list is empty (open the pane with `/issues`). It
+**Other projects.** Once another project has a list too, a **Projects** tab stands at
+the right end of the tabs' row, in a secondary color, also when this project's list is
+empty (open the pane with `/issues`). It
 lists every other project the plugin has kept a list for, one row each: its name
 (`owner/repo` from its `origin` remote, else its directory's name), its directory, how many entries
 it has in each priority, in the groups' colors (`● 2 ● 1`), and when its list last

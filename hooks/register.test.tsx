@@ -638,11 +638,18 @@ test('the Projects tab lists the other projects and opens one read only', async 
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ key: 'tab-session' })).toBeUndefined()
-  expect((await ui.find({ key: 'tab-projects' }))?.text.trim()).toBe('Projects 2')
+  // At the right of the tabs' row, without a count, in a secondary color.
+  expect((await ui.find({ key: 'tab-projects' }))?.text.trim()).toBe('Projects')
+  expect((await ui.find({ type: 'Text', text: ' Projects ' }))?.props.color).toBe('subtle')
+  expect((await ui.findAll({})).flatMap(el => (el.key?.startsWith('tab-') ? [el.key] : []))).toEqual([
+    'tab-all',
+    'tab-projects',
+  ])
   expect(await lines(ui)).toEqual(['▾ Medium 1', '#1 Here'])
 
   // Those with issues first, named from the remote where there is one; this project is not among them.
   await ui.press({ key: 'tab-projects' })
+  expect((await ui.find({ type: 'Text', text: ' Projects ' }))?.props.backgroundColor).toBe('subtle')
   const rows = async () => (await ui.findAll({})).flatMap(el => (el.key?.startsWith('project-/') ? [el.text] : []))
   expect(await rows()).toEqual([
     expect.stringMatching(/^o\/b \/proj\/b● 1● 1just now$/),
