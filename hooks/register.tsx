@@ -605,8 +605,6 @@ export const register: Register = (on, options) => {
     const groups = PRIORITIES.map((priority, i) => ({ priority, items: shown.filter(issue => rank(issue) === i) })).filter(
       g => g.items.length > 0,
     )
-    const open = groups.filter(g => !folded.includes(g.priority.value))
-    const shut = groups.filter(g => folded.includes(g.priority.value))
 
     const group = ({ priority, items }: (typeof groups)[number]) => {
       const isOpen = !folded.includes(priority.value)
@@ -637,10 +635,8 @@ export const register: Register = (on, options) => {
           </Box>
         )}
         {list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
-        {open.map(group)}
-        {/* Folded groups sit at the bottom of the pane; with every group folded, the space above them stays empty. */}
-        {open.length === 0 && shut.length > 0 && <Box flexGrow={1} />}
-        {shut.map(group)}
+        {/* A folded group keeps its place in the priority order. */}
+        {groups.map(group)}
       </Box>
     )
   })
