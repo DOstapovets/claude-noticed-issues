@@ -39,6 +39,7 @@ let github = false
 
 const count = (n: number) => (n === 1 ? '1 issue' : `${n} issues`)
 
+// Called only after `load`, which took the stored `nextId` up into this one: it never goes back.
 const save = async ($: Api, list: Issue[]) => {
   await update($, issues, () => list)
   const stored: Stored = { nextId, items: list }
@@ -48,11 +49,17 @@ const save = async ($: Api, list: Issue[]) => {
 const load = async ($: Api) => {
   const stored = (await $.store.get(storeKey)) as Stored | undefined
   nextId = Math.max(nextId, stored?.nextId ?? 1)
-  const list = stored?.items ?? []
+  const list = Array.isArray(stored?.items) ? stored.items : []
   await update($, issues, () => list)
 
   return list
 }
+
+// Every change starts from the stored list, not the session's copy, which may be
+// up to RELOAD_MS behind another session's. `$.store` has no compare-and-set
+// (only get, set, delete and keys), so two sessions writing in the same moment
+// can still lose one change; that window is accepted.
+const change = async ($: Api, fn: (list: Issue[]) => Issue[]) => save($, fn(await load($)))
 
 // `auto` asks the `origin` remote: ssh (`git@github.com:o/r.git`, `ssh://…`) or https.
 const onGithub = (remote: string | null | undefined) => {
@@ -156,10 +163,7 @@ const startSession = async ($: Api, id: number) => {
     return
   }
 
-  await save(
-    $,
-    (await read($, issues)).map(i => (i.id === id ? { ...i, sessionId } : i)),
-  )
+  await change($, list => list.map(i => (i.id === id ? { ...i, sessionId } : i)))
   await $.ui.toast(`▶ #${id} → background session ${sessionId} · claude attach ${sessionId}`)
 }
 
@@ -191,10 +195,7 @@ const createGithubIssue = async ($: Api, id: number) => {
     return
   }
 
-  await save(
-    $,
-    (await read($, issues)).map(i => (i.id === id ? { ...i, githubUrl } : i)),
-  )
+  await change($, list => list.map(i => (i.id === id ? { ...i, githubUrl } : i)))
   await $.ui.toast(`↗ #${id} → ${githubUrl}`)
   void refreshGithub($)
 }
@@ -254,11 +255,8 @@ const refreshGithub = async ($: Api) => {
 
   // Closed on GitHub, as completed or as not planned: nothing is left to notice.
   const closed = new Set([...statuses].filter(([, status]) => status.state === 'CLOSED').map(([id]) => id))
-  await save(
-    $,
-    (await read($, issues))
-      .filter(i => !closed.has(i.id))
-      .map(i => (statuses.has(i.id) ? { ...i, github: statuses.get(i.id) } : i)),
+  await change($, list =>
+    list.filter(i => !closed.has(i.id)).map(i => (statuses.has(i.id) ? { ...i, github: statuses.get(i.id) } : i)),
   )
   if (closed.size > 0) {
     await $.ui.toast(`✓ closed on GitHub, removed: ${[...closed].map(id => `#${id}`).join(', ')}`)
@@ -295,9 +293,8 @@ const rank = (issue: Issue) => PRIORITIES.findIndex(p => p.value === (issue.prio
 
 // -1 raises it a step, 1 lowers it; at either end it stays.
 const shiftPriority = async ($: Api, id: number, step: -1 | 1) => {
-  await save(
-    $,
-    (await read($, issues)).map(i => {
+  await change($, list =>
+    list.map(i => {
       const to = PRIORITIES[rank(i) + step]
       return i.id === id && to ? { ...i, priority: to.value } : i
     }),
@@ -525,7 +522,7 @@ const startFeedback = async ($: Api, where: string | undefined) => {
 }
 
 const remove = async ($: Api, id: number) => {
-  await save($, (await read($, issues)).filter(i => i.id !== id))
+  await change($, list => list.filter(i => i.id !== id))
 }
 
 const confirmRemove = async ($: Api, id: number) => {
@@ -649,6 +646,11 @@ export const register: Register = (on, options) => {
 
   on('tool.call', { tool: RESOLVE }, async ($, e) => {
     const id = Number((e as unknown as Record<string, unknown>).id)
+
+    if (!Number.isInteger(id)) {
+      return { result: 'Not resolved: `id` must be an issue number.' }
+    }
+
     const list = await load($)
 
     if (!list.some(i => i.id === id)) {
@@ -676,7 +678,7 @@ export const register: Register = (on, options) => {
     }
 
     if (e.args.trim() === 'clear') {
-      await save($, [])
+      await change($, () => [])
       return { text: 'Noticed issues cleared for this project.' }
     }
 

@@ -37,8 +37,19 @@ const BAND = {
 // Stand in for the engine beneath the plugin.
 const engine = (on: On, stored?: Record<string, unknown>) => {
   const clock = mock.clock(on, { now: 1_000 })
+  // `$.store`, kept as JSON, as the engine keeps it; a test writes to it as another session would.
+  const store = new Map(Object.entries(stored ?? {}).map(([key, value]) => [key, JSON.stringify(value)]))
+  const kept = {
+    get: (key: string) => (store.has(key) ? JSON.parse(store.get(key)!) : undefined),
+    set: (key: string, value: unknown) => void store.set(key, JSON.stringify(value)),
+  }
+  on('store.get', (_, e) => ({ value: kept.get(e.key) }))
+  on('store.set', (_, e) => ({ value: kept.set(e.key, e.value) }))
+  on('store.delete', (_, e) => ({ value: void store.delete(e.key) }))
+  on('store.keys', () => ({ value: [...store.keys()] }))
   const seen = {
     clock,
+    store: kept,
     toasts: [] as string[],
     opened: 0,
     argv: [] as (readonly string[])[],
@@ -55,7 +66,6 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     // What `session.surfaces` answers.
     surfaces: ['terminal'] as string[],
   }
-  mock.store(on, stored)
   // The engine's own band, which the count must not replace.
   on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
     const { Text } = $.ui.resolve(e)
@@ -203,6 +213,54 @@ test('issues are noted, deleted, resolved and kept per project', async ($, on) =
   })
   expect(cleared.text).toContain('cleared')
   expect(await flag($)).toBeUndefined()
+})
+
+test('a change in the pane keeps what another session noted meanwhile', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+  await $.tool.call({ tool: NOTE, title: 'Jest gate red on master' })
+  // Another session notes one more, before this one reloads the list.
+  const elsewhere = (title: string) => {
+    const was = seen.store.get('issues:/proj/a')
+    seen.store.set('issues:/proj/a', {
+      nextId: was.nextId + 1,
+      items: [...was.items, { id: was.nextId, title, createdAt: 1 }],
+    })
+  }
+
+  elsewhere('Lockfile out of date')
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'lower-2' })
+  elsewhere('Flaky e2e login')
+  await ui.press({ key: 'delete-1' })
+  await ui.press({ key: 'confirm-delete-1' })
+  await ui.unmount()
+
+  const kept = seen.store.get('issues:/proj/a')
+  expect(kept.items.map((i: { id: number }) => i.id)).toEqual([2, 3, 4])
+  expect(kept.nextId).toBe(5)
+  expect(await flag($)).toBe('⚑ 3 issues · 1 this session')
+  // The next one gets a number of its own, so resolving #3 resolves the one noted elsewhere.
+  expect(answer(await $.tool.call({ tool: NOTE, title: 'Dead link in README' }))).toContain('#5')
+  expect(answer(await $.tool.call({ tool: RESOLVE, id: 3 }))).toBe('Resolved #3.')
+  expect(seen.store.get('issues:/proj/a').items.map((i: { title: string }) => i.title)).toEqual([
+    'Jest gate red on master',
+    'Flaky e2e login',
+    'Dead link in README',
+  ])
+})
+
+test('an issue is resolved only by its number', async ($, on) => {
+  engine(on, { 'issues:/proj/a': { nextId: 2, items: 'not a list' } })
+  await $.session.start(start('/proj/a'))
+  expect(await flag($)).toBeUndefined()
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+
+  for (const id of ['first', undefined, 1.5]) {
+    expect(answer(await $.tool.call({ tool: RESOLVE, id }))).toBe('Not resolved: `id` must be an issue number.')
+  }
+  expect(await flag($)).toBe('⚑ 1 issue · 1 this session')
 })
 
 test('the count above the prompt opens the pane', async ($, on) => {
