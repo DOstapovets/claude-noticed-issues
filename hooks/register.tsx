@@ -1,9 +1,9 @@
 import { atom, read, update } from 'claude-code'
-import type { Hook, Register } from 'claude-code'
+import type { Register } from 'claude-code'
 
 import type { GithubStatus, Issue, Priority, Stored, Tab } from '../types'
-
-type Api = Parameters<Hook<'tool.call'>>[0]
+import { MINUTE, session } from './context'
+import type { Api } from './context'
 
 const PANE = 'noticed-issues'
 const TITLE = 'Noticed issues'
@@ -27,28 +27,20 @@ const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, nu
 const scrolled = atom({ plugin: 'noticed-issues', key: 'scrolled' } as const, {})
 // The time the cards' ages are told from, moved on once a minute: the pane redraws then, not on every tick.
 const minute = atom({ plugin: 'noticed-issues', key: 'minute' } as const, 0)
-const MINUTE = 60_000
 const AGE_MS = 10_000
-
-// Set by session.start, which also runs again on every reload.
-let cwd = ''
-let storeKey = ''
-let nextId = 1
-// Whether this session offers GitHub issues and reads their status.
-let github = false
 
 const count = (n: number) => (n === 1 ? '1 issue' : `${n} issues`)
 
 // Called only after `load`, which took the stored `nextId` up into this one: it never goes back.
 const save = async ($: Api, list: Issue[]) => {
   await update($, issues, () => list)
-  const stored: Stored = { nextId, items: list }
-  await $.store.set(storeKey, stored)
+  const stored: Stored = { nextId: session.nextId, items: list }
+  await $.store.set(session.storeKey, stored)
 }
 
 const load = async ($: Api) => {
-  const stored = (await $.store.get(storeKey)) as Stored | undefined
-  nextId = Math.max(nextId, stored?.nextId ?? 1)
+  const stored = (await $.store.get(session.storeKey)) as Stored | undefined
+  session.nextId = Math.max(session.nextId, stored?.nextId ?? 1)
   const list = Array.isArray(stored?.items) ? stored.items : []
   await update($, issues, () => list)
 
@@ -81,14 +73,14 @@ const commonDir = async ($: Api, dir: string) => {
 // Fold those into the repository's list, renumbered after it; a title already
 // on it is dropped. A repository of its own nested inside keeps its list.
 const migrate = async ($: Api, root: string) => {
-  const nested = (await $.store.keys()).filter(key => key.startsWith(`${storeKey}/`))
+  const nested = (await $.store.keys()).filter(key => key.startsWith(`${session.storeKey}/`))
   const repoGit = nested.length > 0 ? await commonDir($, root) : undefined
 
   if (!repoGit) {
     return
   }
 
-  const stored = (await $.store.get(storeKey)) as Stored | undefined
+  const stored = (await $.store.get(session.storeKey)) as Stored | undefined
   const items = [...(stored?.items ?? [])]
   let next = stored?.nextId ?? 1
   const folded: string[] = []
@@ -115,7 +107,7 @@ const migrate = async ($: Api, root: string) => {
   }
 
   const merged: Stored = { nextId: next, items }
-  await $.store.set(storeKey, merged)
+  await $.store.set(session.storeKey, merged)
   for (const key of folded) {
     await $.store.delete(key)
   }
@@ -139,7 +131,7 @@ const prompt = (issue: Issue) =>
 
 // Starts `claude --bg` with the prompt; its id, or undefined once a toast said why not.
 const background = async ($: Api, text: string, what: string) => {
-  const ran = await $.process.run(['claude', '--bg', text], { cwd }).catch(() => undefined)
+  const ran = await $.process.run(['claude', '--bg', text], { cwd: session.cwd }).catch(() => undefined)
   // `claude --bg` prints the id that `claude attach` takes.
   const sessionId = ran?.exitCode === 0 ? ran.stdout.match(SESSION_ID)?.[0] : undefined
 
@@ -187,14 +179,14 @@ const githubBody = (issue: Issue) =>
 const createGithubIssue = async ($: Api, id: number) => {
   const issue = (await read($, issues)).find(i => i.id === id)
 
-  if (!github || !issue || issue.githubUrl || filing.has(id)) {
+  if (!session.github || !issue || issue.githubUrl || filing.has(id)) {
     return
   }
 
   filing.add(id)
   // gh files it in the repository of the session's directory and prints its URL.
   const ran = await $.process
-    .run(['gh', 'issue', 'create', '--title', issue.title, '--body', githubBody(issue)], { cwd })
+    .run(['gh', 'issue', 'create', '--title', issue.title, '--body', githubBody(issue)], { cwd: session.cwd })
     .catch(() => undefined)
   filing.delete(id)
   const githubUrl = ran?.exitCode === 0 ? ran.stdout.match(GITHUB_ISSUE)?.[0] : undefined
@@ -227,7 +219,7 @@ const parse = (json: string): unknown => {
 
 const githubStatus = async ($: Api, url: string): Promise<GithubStatus | undefined> => {
   const ran = await $.process
-    .run(['gh', 'issue', 'view', url, '--json', 'state,projectItems'], { cwd })
+    .run(['gh', 'issue', 'view', url, '--json', 'state,projectItems'], { cwd: session.cwd })
     .catch(() => undefined)
 
   const viewed = ran?.exitCode === 0 ? (parse(ran.stdout) as Partial<Viewed> | null | undefined) : undefined
@@ -247,7 +239,7 @@ const githubStatus = async ($: Api, url: string): Promise<GithubStatus | undefin
 const refreshGithub = async ($: Api) => {
   const linked = (await read($, issues)).filter(i => i.githubUrl)
 
-  if (!github || refreshing || linked.length === 0) {
+  if (!session.github || refreshing || linked.length === 0) {
     return
   }
 
@@ -478,12 +470,6 @@ const CARD_ROW_GAP = 0.3
 // Inside a card: its border and padding take two columns a side.
 const cardColumnsOf = (bodyColumns: number) => Math.max(20, bodyColumns - 4)
 
-// The pane's width as last drawn: `ui.scroll` does not carry it.
-let paneColumns = 60
-// Whether the pane was last drawn on the terminal, the one surface whose rows the
-// layout can count: `ui.scroll` does not say where it comes from either.
-let paneOnTerminal = true
-
 // Where reports about the plugin itself go.
 const PLUGIN_REPO = 'DOstapovets/claude-noticed-issues'
 
@@ -507,9 +493,6 @@ const whereRun = (surface: string | undefined, isFullscreen: boolean | undefined
       return undefined
   }
 }
-
-// Whether the pane was last drawn in the terminal's fullscreen layout, for feedback from its button.
-let paneFullscreen: boolean | undefined
 
 const feedbackPrompt = (where: string | undefined, surfaces: readonly string[]) => [
   `Help me send feedback about the noticed-issues Claude Code plugin to its GitHub repository, ${PLUGIN_REPO}.`,
@@ -556,13 +539,13 @@ const SESSION_ID = /\b[0-9a-f]{8}(?:-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const ran = await next(e)
-    cwd = ran.cwd
+    session.cwd = ran.cwd
     // One list per repository, shared by its worktrees: the main working
     // tree's root names it. Outside a repository the directory does.
     const repo = await $.session.repo()
-    storeKey = `issues:${repo?.root ?? cwd}`
-    github = options.github === 'on' || (options.github !== 'off' && onGithub(repo?.remote))
-    nextId = 1
+    session.storeKey = `issues:${repo?.root ?? session.cwd}`
+    session.github = options.github === 'on' || (options.github !== 'off' && onGithub(repo?.remote))
+    session.nextId = 1
 
     if (repo) {
       await migrate($, repo.root)
@@ -655,14 +638,14 @@ export const register: Register = (on, options) => {
       return { result: `Already on the list as #${same.id}.` }
     }
 
-    const issue: Issue = { id: nextId, title, createdAt: await $.clock.now(), noticedIn: await $.session.id() }
+    const issue: Issue = { id: session.nextId, title, createdAt: await $.clock.now(), noticedIn: await $.session.id() }
     const detail = field('detail')
     const file = field('file')
     if (detail) issue.detail = detail
     if (file) issue.file = file
     if (PRIORITIES.some(p => p.value === input.priority)) issue.priority = input.priority as Priority
 
-    nextId += 1
+    session.nextId += 1
     await save($, [...list, issue])
     await $.ui.toast(`⚑ noted #${issue.id}: ${title}`)
     void openPane($)
@@ -758,7 +741,7 @@ export const register: Register = (on, options) => {
   // first open one for the keys) a card at a time; the pane itself stays put.
   // Elsewhere (VS Code, desktop, mobile) the groups flow and the pane scrolls whole.
   on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
-    if (!paneOnTerminal) {
+    if (!session.paneOnTerminal) {
       return next(e)
     }
 
@@ -768,7 +751,7 @@ export const register: Register = (on, options) => {
       await read($, collapsed),
       headRows(mine.length > 0),
       e.bodyRows,
-      cardColumnsOf(paneColumns),
+      cardColumnsOf(session.paneColumns),
       await read($, deleting),
       await read($, minute),
     ).filter(g => g.isOpen)
@@ -787,13 +770,13 @@ export const register: Register = (on, options) => {
     const { Box, Text, Button, Link } = $.ui.resolve(e)
     const list = await read($, issues)
 
-    paneColumns = e.props.bodyColumns
+    session.paneColumns = e.props.bodyColumns
     // Only the terminal draws a row as one cell high, so only there are the rows
     // worked out: a graphical surface draws borders, buttons and wrapped text at
     // heights of its own, and a fixed height leaves gaps or cuts cards off.
     const fitsRows = e.surface === 'terminal'
-    paneOnTerminal = fitsRows
-    if (fitsRows) paneFullscreen = e.viewport?.isFullscreen
+    session.paneOnTerminal = fitsRows
+    if (fitsRows) session.paneFullscreen = e.viewport?.isFullscreen
     // VS Code's webview draws no `hover` (a Box drawn `display: "none"` stays hidden)
     // and a phone has no pointer, so there what a hover reveals is always shown.
     const hovers = e.surface !== 'vscode' && e.surface !== 'mobile'
@@ -905,7 +888,7 @@ export const register: Register = (on, options) => {
                 onPress={() => startSession($, issue.id)}
               />
             )}
-            {github && !issue.githubUrl && (
+            {session.github && !issue.githubUrl && (
               <Button
                 key={`github-${issue.id}`}
                 label="↗ GitHub issue"
@@ -971,7 +954,7 @@ export const register: Register = (on, options) => {
         plain
         dimColor
         label="✎ Feedback"
-        onPress={press => startFeedback($, whereRun(press.surface, press.surface === 'terminal' ? paneFullscreen : undefined))}
+        onPress={press => startFeedback($, whereRun(press.surface, press.surface === 'terminal' ? session.paneFullscreen : undefined))}
       />
     )
     const tabs = (
