@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.22.0...v0.23.0) (2026-11-06)
+
+
+### Features
+
+* a first session in a repository offers to analyze it and write when to note an issue there ([02f5f9a](https://github.com/DOstapovets/claude-noticed-issues/commit/02f5f9a0856d58398c40e7a4098c40a697001c53))
+
 ## [0.22.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.21.0...v0.22.0) (2026-11-06)
 
 
