@@ -1,0 +1,64 @@
+name: Bug report
+description: Something in the plugin does not work as described in the README
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please check the open issues first, in case it is already known.
+        A security problem goes through the repository's **Security** tab instead, privately.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected instead.
+      placeholder: |
+        I pressed ↗ GitHub issue on an entry and got the toast "Could not create a GitHub issue…",
+        expected the card to link the new issue.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. In a repository whose origin is on github.com, run /issues
+        2. …
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: The `version` in the plugin's `.claude-plugin/plugin.json`, or what `claude plugin list` shows.
+      placeholder: 0.14.1
+    validations:
+      required: true
+  - type: input
+    id: claude-version
+    attributes:
+      label: Claude Code version
+      description: The output of `claude --version`.
+      placeholder: 2.1.311 (Claude Code)
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where you run Claude Code
+      options:
+        - Terminal, fullscreen layout
+        - Terminal, main screen
+        - Desktop app
+        - VS Code
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: |
+        A screenshot of the pane, and any `noticed-issues:` line from the transcript or from `claude --debug`.
+        Remove tokens, internal hostnames and anything else you would not post publicly.
+      render: text

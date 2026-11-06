@@ -126,6 +126,14 @@ claude --plugin-dir .         # a session with this checkout loaded
 | `hooks/register.test.tsx` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
 | `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus` and `Stored` types and the `$.state` contract. |
 
+## Feedback
+
+Found a bug or want something changed? [Open an issue](https://github.com/DOstapovets/claude-noticed-issues/issues/new/choose)
+with the **Bug report** or **Feature request** form. Questions go to
+[Discussions](https://github.com/DOstapovets/claude-noticed-issues/discussions), security
+problems to the private report described in [SECURITY.md](./SECURITY.md). Pull requests:
+see [CONTRIBUTING.md](./CONTRIBUTING.md).
+
 ## License
 
 [MIT](./LICENSE)
