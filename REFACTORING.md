@@ -11,6 +11,10 @@ Make the plugin's persistence correct across sessions, then split `hooks/registe
 - Make the pure layout code unit-testable.
 - Stay a lightweight modular monolith. No layers, no interfaces with one implementation.
 
+**Status:** Phases 1 and 2 are on `main` (0.21.0). Still open: the live check of the
+pane after the split, and a test for `gh` failing with invalid JSON or an
+authentication error.
+
 ## Guiding principles
 
 1. Every item names the code it changes. An item that names no code gets cut.
@@ -60,10 +64,10 @@ Example: a background session notes #5. Within 30 s the user presses ▲ in the 
 session. The store is rewritten without #5 and with `nextId` 5, so the next note is #5
 again. A stale `resolve_issue 5` then removes the wrong issue.
 
-- [ ] Add one write path, `change($, fn)`: `load` from the store, apply `fn`, `save`.
+- [x] Add one write path, `change($, fn)`: `load` from the store, apply `fn`, `save`.
   Every mutation above goes through it.
-- [ ] `nextId` never decreases.
-- [ ] Note in the code that, with no compare-and-set, a `get → set` window between
+- [x] `nextId` never decreases.
+- [x] Note in the code that, with no compare-and-set, a `get → set` window between
   sessions remains. It is accepted.
 
 Sequential ids stay. `#id` is part of the UX (the card, the toasts, the background
@@ -74,29 +78,29 @@ session's prompt, `resolve_issue(id: number)`), and 1.1 fixes the bug without UU
 Suppose `gh issue view --json state,projectItems` returns JSON without `projectItems`.
 `githubStatus` then throws, `refreshing` stays `true`, and no later refresh runs.
 
-- [ ] `githubStatus` checks the shape: `state` is `OPEN` or `CLOSED` and `projectItems`
+- [x] `githubStatus` checks the shape: `state` is `OPEN` or `CLOSED` and `projectItems`
   is an array. Otherwise that issue is skipped this round.
-- [ ] `refreshGithub` resets `refreshing` in `finally`.
+- [x] `refreshGithub` resets `refreshing` in `finally`.
 
 ### 1.3 A second ▶ press starts a second background session
 
 `createGithubIssue` is guarded by `filing`. `startSession` has no guard.
 
-- [ ] Add `starting: Set<number>`, checked at the top of `startSession` and cleared in
+- [x] Add `starting: Set<number>`, checked at the top of `startSession` and cleared in
   `finally`.
 
 ### 1.4 One huge note can break the store for every project
 
 `note_issue` stores `title`, `detail` and `file` whole. Only the pane clips `detail`.
 
-- [ ] Cap the stored lengths with `clip`. The tool's answer says when it cut a field.
+- [x] Cap the stored lengths with `clip`. The tool's answer says when it cut a field.
   Add a README line.
 
 ### 1.5 Small input hardening (low)
 
-- [ ] `resolve_issue` with an id that is not an integer gets a clear answer instead of
+- [x] `resolve_issue` with an id that is not an integer gets a clear answer instead of
   `#NaN`.
-- [ ] `load` reads a stored value whose `items` is not an array as an empty list.
+- [x] `load` reads a stored value whose `items` is not an array as an empty list.
 
 ### Dropped from the original Phase 1
 
@@ -131,11 +135,11 @@ commit per module, and behavior does not change. The files stay in `hooks/`, bec
 Order: `context`, `store` and `layout` come first, because everything else imports
 them. `github`, `sessions` and `pane` can then be split in parallel.
 
-- [ ] Unit tests for `layout.ts` in `hooks/layout.test.ts`: `share`, `wrappedRows`,
+- [x] Unit tests for `layout.ts` in `hooks/layout.test.ts`: `share`, `wrappedRows`,
   `cardRows`, `age`.
 - [ ] After `pane.tsx`, check the pane live in the terminal and in VS Code
   (`claude --plugin-dir <worktree>`). The test kit does not draw.
-- [ ] Update the Layout section of AGENTS.md. README describes behavior, so it stays
+- [x] Update the Layout section of AGENTS.md. README describes behavior, so it stays
   as is.
 
 ### Rejected from the original Phase 2
@@ -154,8 +158,8 @@ them. `github`, `sessions` and `pane` can then be split in parallel.
 
 Only the tests that Phases 1–2 do not already add:
 
-- [ ] A narrow pane (`cardColumnsOf` floors at 20 columns).
-- [ ] 100+ issues through `arrange`.
+- [x] A narrow pane (`cardColumnsOf` floors at 20 columns).
+- [x] 100+ issues through `arrange`.
 - [ ] `gh` returns invalid JSON, or fails authentication (stderr reaches the toast).
 
 ---
@@ -198,11 +202,11 @@ Only the tests that Phases 1–2 do not already add:
 
 ## Definition of done
 
-- [ ] No mutation writes a list it did not just read from the store; `nextId` never
+- [x] No mutation writes a list it did not just read from the store; `nextId` never
   decreases.
-- [ ] No in-flight flag (`refreshing`, `filing`, `starting`) can stay set after a
+- [x] No in-flight flag (`refreshing`, `filing`, `starting`) can stay set after a
   failure.
-- [ ] A single note cannot grow the store without bound.
-- [ ] `register.tsx` is wiring only; the pure layout code is unit-tested.
+- [x] A single note cannot grow the store without bound.
+- [x] `register.tsx` is wiring only; the pure layout code is unit-tested.
 - [ ] Existing and new tests pass; the pane was checked live on the terminal and in
   VS Code.
