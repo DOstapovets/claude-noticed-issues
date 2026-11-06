@@ -410,8 +410,8 @@ const wrappedRows = (text: string, width: number) => {
 // The rows a card takes with `columns` inside its border. A plugin cannot
 // measure what it drew, so a group's rows are worked out from these.
 const cardRows = (issue: Issue, columns: number, isConfirming: boolean, now: number) => {
-  // The corner beside the heading, and a column before it: `5m ago  ✕ `, or `Delete? ✓ ↩ `.
-  const head = Math.max(1, columns - (isConfirming ? 14 : 5 + age(issue.createdAt, now).length))
+  // The corner beside the heading, and a column before it: `5m ago  ✕ `, or `Delete? ✓ yes ↩ no `.
+  const head = Math.max(1, columns - (isConfirming ? 21 : 5 + age(issue.createdAt, now).length))
   const title = issue.githubUrl ? 1 + wrappedRows(issue.title, head) : wrappedRows(`#${issue.id} ${issue.title}`, head)
   const detail = issue.detail ? wrappedRows(clip(issue.detail, DETAIL_LINES * columns), columns) : 0
 
@@ -694,10 +694,10 @@ export const register: Register = (on, options) => {
           <Text color="error">Delete?</Text>
           <Button key={`confirm-delete-${issue.id}`} plain onPress={() => confirmRemove($, issue.id)}>
             <Text color="error" bold>
-              {' ✓ '}
+              {' ✓ yes '}
             </Text>
           </Button>
-          <Button key={`cancel-delete-${issue.id}`} plain dimColor label=" ↩ " onPress={() => update($, deleting, () => null)} />
+          <Button key={`cancel-delete-${issue.id}`} plain dimColor label=" ↩ no " onPress={() => update($, deleting, () => null)} />
         </Box>
       ) : (
         <Box flexShrink={0} marginLeft={1}>

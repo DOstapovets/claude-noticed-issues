@@ -590,10 +590,13 @@ test('the red ✕ in a card\'s corner asks once before it deletes', async ($, on
   // The first press only asks, and only on that card.
   await ui.press({ key: 'delete-1' })
   expect(await ui.find({ type: 'Text', text: 'Delete?' })).toBeDefined()
+  // Each answer says what it does, not only a symbol.
+  expect((await ui.find({ key: 'confirm-delete-1' }))?.text.trim()).toBe('✓ yes')
+  expect((await ui.find({ key: 'cancel-delete-1' }))?.text.trim()).toBe('↩ no')
   expect(await ui.find({ key: 'confirm-delete-2' })).toBeUndefined()
   expect(await flag($)).toBe('⚑ 2 issues · 2 this session')
 
-  // ↩ takes it back; ✓ deletes.
+  // ↩ no takes it back; ✓ yes deletes.
   await ui.press({ key: 'cancel-delete-1' })
   expect(await ui.find({ key: 'confirm-delete-1' })).toBeUndefined()
   expect(await flag($)).toBe('⚑ 2 issues · 2 this session')
