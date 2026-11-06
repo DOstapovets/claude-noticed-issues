@@ -19,7 +19,7 @@ export const headRows = (hasTabs: boolean) => (hasTabs ? 4 : 2)
 // Splits `free` rows between groups that need `needs` rows each: one that
 // needs no more than an even share gets what it needs, and the rows it leaves
 // go to the rest, which share them evenly.
-const share = (needs: number[], free: number) => {
+export const share = (needs: number[], free: number) => {
   const rows = needs.map(() => 1)
   let left = free
   let rest = needs.map((_, i) => i)
@@ -103,7 +103,7 @@ export const clip = (value: string, max: number) => (value.length > max ? `${val
 export const LIMITS = { title: 200, detail: 4000, file: 500 } as const
 
 // The rows `text` takes wrapped at `width`, word by word, a word wider than a row broken.
-const wrappedRows = (text: string, width: number) => {
+export const wrappedRows = (text: string, width: number) => {
   let rows = 1
   let used = 0
 
@@ -123,7 +123,7 @@ const wrappedRows = (text: string, width: number) => {
 
 // The rows a card takes with `columns` inside its border. A plugin cannot
 // measure what it drew, so a group's rows are worked out from these.
-const cardRows = (issue: Issue, columns: number, isConfirming: boolean, now: number) => {
+export const cardRows = (issue: Issue, columns: number, isConfirming: boolean, now: number) => {
   // The corner beside the heading, and a column before it: `5m ago  ✕ `, or `Delete? ✓ ↩ `.
   const head = Math.max(1, columns - (isConfirming ? 14 : 5 + age(issue.createdAt, now).length))
   const title = issue.githubUrl ? 1 + wrappedRows(issue.title, head) : wrappedRows(`#${issue.id} ${issue.title}`, head)
