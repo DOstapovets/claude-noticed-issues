@@ -504,10 +504,13 @@ test('each open group scrolls its cards under a heading that stays put', async (
   for (const n of [1, 2]) await $.tool.call({ tool: NOTE, title: `Doc ${n}` })
 
   // The pane never outgrows its 40 rows, so the engine has nothing to scroll. Below
-  // the heading and the tabs, 36 rows: Medium needs 11 and gets them, High the other 25.
+  // the heading and the tabs, 36 rows, one of them blank between the groups: Medium
+  // needs 11 and gets them, High the other 24.
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(11)
-  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(25)
+  expect((await ui.find({ key: 'priority-medium' }))?.props.marginTop).toBe(1)
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(24)
+  expect((await ui.find({ key: 'priority-high' }))?.props.marginTop).toBe(0)
   const scroll = (by: number, row?: number) =>
     $.ui.scroll({
       component: 'Pane',
@@ -521,14 +524,14 @@ test('each open group scrolls its cards under a heading that stays put', async (
     } as never)
   const high = async () => (await lines(ui)).filter(line => line.startsWith('#') && line.includes('Leak'))
 
-  // Rows 4 to 28 are High's, 29 to 39 Medium's; a tick moves one card.
+  // Rows 4 to 27 are High's, 29 to 39 Medium's; a tick moves one card.
   expect((await high())[0]).toBe('#8 Leak 8')
   await scroll(1, 10)
   expect((await high())[0]).toBe('#7 Leak 7')
   expect(await ui.find({ type: 'Text', text: / ↑ 1 above/ })).toBeDefined()
   await scroll(3, 10)
   expect((await high())[0]).toBe('#6 Leak 6')
-  // No further than the view that shows the last card: 4 cards of 5 rows fit in 24.
+  // No further than the view that shows the last card: 4 cards of 5 rows fit in 23.
   for (let i = 0; i < 6; i += 1) await scroll(1, 10)
   expect((await high())[0]).toBe('#4 Leak 4')
   // Medium shows all its cards, so it does not scroll.

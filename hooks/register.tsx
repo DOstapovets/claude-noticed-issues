@@ -354,7 +354,8 @@ const arrange = (
   })).filter(g => g.items.length > 0)
   const heights = groups.map(g => g.items.map(issue => cardRows(issue, columns, issue.id === confirming, now)))
   const open = groups.flatMap((g, i) => (g.isOpen ? [i] : []))
-  const free = Math.max(0, bodyRows - top - (groups.length - open.length))
+  // Less a heading's row for each folded group and a blank row between groups.
+  const free = Math.max(0, bodyRows - top - (groups.length - open.length) - Math.max(0, groups.length - 1))
   const given = share(
     open.map(i => 1 + sum(heights[i]!)),
     free,
@@ -367,7 +368,7 @@ const arrange = (
     let lastFirst = 0
     while (lastFirst < cards.length - 1 && 1 + sum(cards.slice(lastFirst)) > rows) lastFirst += 1
     const placed = { ...g, top: row, rows, lastFirst }
-    row += rows
+    row += rows + 1
     return placed
   })
 }
@@ -824,11 +825,18 @@ export const register: Register = (on, options) => {
     const groups = arrange(shown, await read($, collapsed), headRows(mine.length > 0), bodyRows, cardColumns, confirming, now)
     const at = await read($, scrolled)
 
-    const group = ({ priority, items, isOpen, rows, lastFirst }: (typeof groups)[number]) => {
+    const group = ({ priority, items, isOpen, rows, lastFirst }: (typeof groups)[number], index: number) => {
       const first = firstCard(at[priority.value], lastFirst)
 
       return (
-        <Box key={`priority-${priority.value}`} flexDirection="column" height={rows} flexShrink={0} overflow="hidden">
+        <Box
+          key={`priority-${priority.value}`}
+          flexDirection="column"
+          height={rows}
+          marginTop={index > 0 ? 1 : 0}
+          flexShrink={0}
+          overflow="hidden"
+        >
           <Box flexShrink={0}>
             <Button key={`group-${priority.value}`} plain onPress={() => toggleGroup($, priority.value)}>
               <Text color={priority.color} bold>
