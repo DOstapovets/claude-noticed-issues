@@ -323,17 +323,72 @@ export async function renderPane($: Api, e: PaneRender) {
   // priority it has, in their groups' colors, and when its list last changed.
   // A project with none is dim and comes last. This project heads the list, in
   // the accent color and marked as such; pressing it leads back to its own list.
+  const pressProject = (p: Project, isCurrent: boolean) => () =>
+    isCurrent ? chooseTab($, 'all') : openProject($, p.root)
+  const projectSide = (p: Project, isCurrent: boolean) => (
+    <Box flexShrink={0} marginLeft={1} gap={1} {...(space ? { alignItems: 'center' as const } : {})}>
+      {p.items.length === 0 ? (
+        <Text dimColor>no issues</Text>
+      ) : (
+        PRIORITIES.map((priority, i) => {
+          const n = p.items.filter(issue => rank(issue) === i).length
+          const color = colorlessButtons ? VSCODE_COLORS[priority.value] : priority.color
+          return (
+            n > 0 && (
+              <Text key={`count-${p.root}-${priority.value}`} color={color}>
+                ● {n}
+              </Text>
+            )
+          )
+        })
+      )}
+      {isCurrent ? (
+        <Text color="claude">this project</Text>
+      ) : (
+        p.updatedAt !== undefined && <Text dimColor>{age(p.updatedAt, now)}</Text>
+      )}
+    </Box>
+  )
   const projectRow = (p: Project, isCurrent = false) => {
     const empty = p.items.length === 0
+
+    // VS Code draws a Button as a filled chip around all it holds: there a project is
+    // a card like an issue's, its name a dim chip, its directory on a line below.
+    if (space) {
+      return (
+        <Box
+          key={`project-${p.root}`}
+          flexDirection="column"
+          marginBottom={space.betweenCards}
+          paddingX={1}
+          paddingY={CARD_PADDING_Y}
+          rowGap={CARD_ROW_GAP}
+          flexShrink={0}
+          borderStyle="round"
+          borderDimColor
+          hover={{ borderColor: 'claude', borderDimColor: false }}
+        >
+          <Box justifyContent="space-between" alignItems="center" flexWrap="nowrap">
+            <Button
+              key={`open-${p.root}`}
+              plain
+              dimColor
+              label={projectName(p.root, p.remote)}
+              onPress={pressProject(p, isCurrent)}
+            />
+            {projectSide(p, isCurrent)}
+          </Box>
+          <Text dimColor wrap="truncate-middle">
+            {p.root}
+          </Text>
+        </Box>
+      )
+    }
 
     return (
       <Box key={`project-${p.root}`} justifyContent="space-between" flexShrink={0}>
         <Box flexGrow={1} flexShrink={1}>
-          <Button
-            key={`open-${p.root}`}
-            plain
-            onPress={() => (isCurrent ? chooseTab($, 'all') : openProject($, p.root))}
-          >
+          <Button key={`open-${p.root}`} plain onPress={pressProject(p, isCurrent)}>
             <Text wrap="truncate-end" {...(empty && !isCurrent ? { dimColor: true } : {})}>
               <Text bold={!empty || isCurrent} {...(isCurrent ? { color: 'claude' as const } : {})}>
                 {projectName(p.root, p.remote)}
@@ -342,37 +397,23 @@ export async function renderPane($: Api, e: PaneRender) {
             </Text>
           </Button>
         </Box>
-        <Box flexShrink={0} marginLeft={1} gap={1}>
-          {empty ? (
-            <Text dimColor>no issues</Text>
-          ) : (
-            PRIORITIES.map((priority, i) => {
-              const n = p.items.filter(issue => rank(issue) === i).length
-              const color = colorlessButtons ? VSCODE_COLORS[priority.value] : priority.color
-              return (
-                n > 0 && (
-                  <Text key={`count-${p.root}-${priority.value}`} color={color}>
-                    ● {n}
-                  </Text>
-                )
-              )
-            })
-          )}
-          {isCurrent ? (
-            <Text color="claude">this project</Text>
-          ) : (
-            p.updatedAt !== undefined && <Text dimColor>{age(p.updatedAt, now)}</Text>
-          )}
-        </Box>
+        {projectSide(p, isCurrent)}
       </Box>
     )
   }
 
   // Above another project's groups: the way back to every project, then which one this is.
+  // In VS Code the way back is a dim chip, like Feedback, not a filled one.
   const back = opened && (
-    <Box key="project-head" marginBottom={1} gap={1}>
+    <Box key="project-head" marginBottom={1} gap={1} {...(space ? { alignItems: 'center' as const } : {})}>
       <Box flexShrink={0}>
-        <Button key="projects-back" plain label="← Projects" onPress={() => openProject($, null)} />
+        <Button
+          key="projects-back"
+          plain
+          {...(colorlessButtons ? { dimColor: true } : {})}
+          label="← Projects"
+          onPress={() => openProject($, null)}
+        />
       </Box>
       <Box flexShrink={0}>
         <Text bold>{projectName(opened.root, opened.remote)}</Text>

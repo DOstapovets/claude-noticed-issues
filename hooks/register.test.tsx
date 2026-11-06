@@ -692,6 +692,20 @@ test('the Projects tab lists the other projects and opens one read only', async 
     await other.press({ key: 'projects-back' })
     await other.unmount()
   }
+
+  // In VS Code, which fills a Button around all it holds, each project is a card:
+  // its name a dim chip, the counts beside it, its directory on a line below.
+  const vscode = await $.ui.mount({ ...PANE, surface: 'vscode' })
+  const card = await vscode.find({ key: 'project-/proj/b' })
+  expect(card?.props.borderStyle).toBe('round')
+  expect(card?.props.flexDirection).toBe('column')
+  expect(card?.text).toBe('o/b● 1● 1just now/proj/b')
+  expect(await vscode.find({ type: 'Text', text: '/proj/b' })).toMatchObject({ props: { wrap: 'truncate-middle' } })
+  expect(await vscode.find({ key: 'open-/proj/b' })).toMatchObject({ text: 'o/b', props: { dimColor: true } })
+  expect((await vscode.find({ key: 'project-/proj/a' }))?.text).toBe('a● 1this project/proj/a')
+  await vscode.press({ key: 'open-/proj/b' })
+  expect((await vscode.find({ key: 'projects-back' }))?.props.dimColor).toBe(true)
+  await vscode.unmount()
 })
 
 test('each open group scrolls its cards under a heading that stays put', async ($, on) => {

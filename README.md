@@ -98,7 +98,9 @@ inside each card. Where nothing is drawn on hover (VS Code, the mobile app), ▲
 always show. VS Code draws no colors inside a button, so there a group's heading is
 a colored dot beside its name, which is the part you press; the arrows and the tab
 not shown are dim; the cards stand in under the heading; and the pane's own heading
-is left out, as VS Code titles the pane, with **✎ Feedback** on the tabs' row.
+is left out, as VS Code titles the pane, with **✎ Feedback** on the tabs' row. On
+the Projects tab each project there is a card like an entry's: its name a dim button
+with the counts beside it, its directory on a line below.
 
 **Commands:**
 
