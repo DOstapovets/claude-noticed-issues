@@ -1,9 +1,10 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { GithubStatus, Issue, Priority, Tab } from '../types'
+import type { Issue, Priority, Tab } from '../types'
 import { MINUTE, session } from './context'
 import type { Api } from './context'
+import { createGithubIssue, onGithub, refreshGithub } from './github'
 import { age, arrange, cardColumnsOf, clip, count, DETAIL_LINES, firstCard, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { change, COLLAPSED_KEY, load, migrate, save, toggleGroup } from './store'
 
@@ -29,13 +30,6 @@ const scrolled = atom({ plugin: 'noticed-issues', key: 'scrolled' } as const, {}
 // The time the cards' ages are told from, moved on once a minute: the pane redraws then, not on every tick.
 const minute = atom({ plugin: 'noticed-issues', key: 'minute' } as const, 0)
 const AGE_MS = 10_000
-
-// `auto` asks the `origin` remote: ssh (`git@github.com:o/r.git`, `ssh://…`) or https.
-const onGithub = (remote: string | null | undefined) => {
-  const host = remote?.match(/^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?([^:/]+)/i)?.[1]
-
-  return host !== undefined && /(^|\.)github\.com$/i.test(host)
-}
 
 const openPane = ($: Api) => $.ui.open({ id: PANE, title: TITLE })
 
@@ -89,107 +83,6 @@ const startSession = async ($: Api, id: number) => {
     await $.ui.toast(`▶ #${id} → background session ${sessionId} · claude attach ${sessionId}`)
   } finally {
     starting.delete(id)
-  }
-}
-
-// Ids whose `gh issue create` is still running, so a second press does not file it twice.
-const filing = new Set<number>()
-
-const githubBody = (issue: Issue) =>
-  [issue.detail, issue.file && `Where: \`${issue.file}\``, '_Noticed by Claude Code._']
-    .filter(Boolean)
-    .join('\n\n')
-
-const createGithubIssue = async ($: Api, id: number) => {
-  const issue = (await read($, issues)).find(i => i.id === id)
-
-  if (!session.github || !issue || issue.githubUrl || filing.has(id)) {
-    return
-  }
-
-  filing.add(id)
-  // gh files it in the repository of the session's directory and prints its URL.
-  const ran = await $.process
-    .run(['gh', 'issue', 'create', '--title', issue.title, '--body', githubBody(issue)], { cwd: session.cwd })
-    .catch(() => undefined)
-  filing.delete(id)
-  const githubUrl = ran?.exitCode === 0 ? ran.stdout.match(GITHUB_ISSUE)?.[0] : undefined
-
-  if (!githubUrl) {
-    await $.ui.toast(`Could not create a GitHub issue for #${id}: ${ran?.stderr.trim() || 'gh issue create failed'}`)
-    return
-  }
-
-  await change($, list => list.map(i => (i.id === id ? { ...i, githubUrl } : i)))
-  await $.ui.toast(`↗ #${id} → ${githubUrl}`)
-  void refreshGithub($)
-}
-
-// One pass at a time: the timer, `/issues` and a new issue may all ask for one.
-let refreshing = false
-
-type Viewed = {
-  state: GithubStatus['state']
-  projectItems: { status: { name: string } | null }[]
-}
-
-const parse = (json: string): unknown => {
-  try {
-    return JSON.parse(json)
-  } catch {
-    return undefined
-  }
-}
-
-const githubStatus = async ($: Api, url: string): Promise<GithubStatus | undefined> => {
-  const ran = await $.process
-    .run(['gh', 'issue', 'view', url, '--json', 'state,projectItems'], { cwd: session.cwd })
-    .catch(() => undefined)
-
-  const viewed = ran?.exitCode === 0 ? (parse(ran.stdout) as Partial<Viewed> | null | undefined) : undefined
-
-  // An answer of another shape skips the issue this pass.
-  if ((viewed?.state !== 'OPEN' && viewed?.state !== 'CLOSED') || !Array.isArray(viewed.projectItems)) {
-    return undefined
-  }
-
-  const status: GithubStatus = { state: viewed.state }
-  const board = viewed.projectItems.find(item => item?.status)?.status?.name
-  if (board) status.board = board
-
-  return status
-}
-
-const refreshGithub = async ($: Api) => {
-  const linked = (await read($, issues)).filter(i => i.githubUrl)
-
-  if (!session.github || refreshing || linked.length === 0) {
-    return
-  }
-
-  refreshing = true
-  const statuses = new Map<number, GithubStatus>()
-  try {
-    for (const issue of linked) {
-      const status = await githubStatus($, issue.githubUrl!)
-      if (status) statuses.set(issue.id, status)
-    }
-  } finally {
-    // Whatever went wrong, the next pass still runs.
-    refreshing = false
-  }
-
-  if (statuses.size === 0) {
-    return
-  }
-
-  // Closed on GitHub, as completed or as not planned: nothing is left to notice.
-  const closed = new Set([...statuses].filter(([, status]) => status.state === 'CLOSED').map(([id]) => id))
-  await change($, list =>
-    list.filter(i => !closed.has(i.id)).map(i => (statuses.has(i.id) ? { ...i, github: statuses.get(i.id) } : i)),
-  )
-  if (closed.size > 0) {
-    await $.ui.toast(`✓ closed on GitHub, removed: ${[...closed].map(id => `#${id}`).join(', ')}`)
   }
 }
 
@@ -298,8 +191,6 @@ const confirmRemove = async ($: Api, id: number) => {
   await update($, deleting, () => null)
   await remove($, id)
 }
-
-const GITHUB_ISSUE = /https:\/\/\S+\/issues\/\d+/
 
 const SESSION_ID = /\b[0-9a-f]{8}(?:-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\b/
 
