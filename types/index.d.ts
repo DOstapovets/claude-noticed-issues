@@ -6,6 +6,8 @@ export type Issue = {
   createdAt: number
   /** Absent on issues noted before priorities existed: those are `medium`. */
   priority?: Priority
+  /** The session that noted it (`$.session.id()`); absent on issues noted before 0.16. */
+  noticedIn?: string
   /** The background session started for it from the pane, if any. */
   sessionId?: string
   /** The GitHub issue created for it from the pane, if any. */
@@ -15,6 +17,8 @@ export type Issue = {
 }
 
 export type Priority = 'high' | 'medium' | 'low'
+
+export type Tab = 'all' | 'session'
 
 export type GithubStatus = {
   state: 'OPEN' | 'CLOSED'
@@ -32,6 +36,8 @@ declare module 'claude-code' {
       issues: Issue[]
       /** The priority groups folded in the pane, mirrored from `$.store` (`collapsed`). */
       collapsed: Priority[]
+      /** The pane's tab: every issue, or only those this session noted. */
+      tab: Tab
     }
   }
 }

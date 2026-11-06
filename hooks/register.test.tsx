@@ -50,6 +50,8 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     // A function answers per URL.
     github: { state: 'OPEN', projectItems: [] } as unknown,
     viewed: [] as string[],
+    // What `session.id` answers.
+    session: 'session-a',
   }
   mock.store(on, stored)
   // The engine's own band, which the count must not replace.
@@ -68,6 +70,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
   on('tool.register', (_, e) => ({ value: { tool: `mcp__noticed-issues__${e.name}` } }))
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.id', () => ({ value: seen.session }))
   on('session.repo', () => ({
     value: seen.repo === null ? null : { root: seen.repo, remote: seen.remote, internal: false, name: null },
   }))
@@ -435,6 +438,49 @@ test('a priority group folds to the bottom of the pane, and stays folded', async
   expect(await lines(other)).toEqual(['▸ High 1'])
   await other.press({ key: 'group-high' })
   expect(await lines(other)).toEqual(['▾ High 1', '#1 Other project'])
+  await other.unmount()
+})
+
+test('tabs show every issue or only those this session noted, once it has noted one', async ($, on) => {
+  const seen = engine(on, {
+    'issues:/proj/a': {
+      nextId: 3,
+      items: [
+        { id: 1, title: 'From before', createdAt: 1 },
+        { id: 2, title: 'Other session', createdAt: 1, noticedIn: 'session-z' },
+      ],
+    },
+  })
+  await $.session.start(start('/proj/a'))
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ key: 'tab-all' })).toBeUndefined()
+  await ui.unmount()
+
+  await $.tool.call({ tool: NOTE, title: 'Noted here', priority: 'high' })
+  const tabs = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await tabs.find({ key: 'tab-all' }))?.text).toBe('All 3')
+  expect((await tabs.find({ key: 'tab-session' }))?.text).toBe('This session 1')
+  expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here', '▾ Medium 2', '#1 From before', '#2 Other session'])
+  await tabs.press({ key: 'tab-session' })
+  expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here'])
+  await tabs.press({ key: 'tab-all' })
+  expect(await lines(tabs)).toHaveLength(5)
+  await tabs.press({ key: 'tab-session' })
+  await tabs.unmount()
+
+  // Its last issue resolved, the session tab goes and the pane shows them all.
+  await $.tool.call({ tool: RESOLVE, id: 3 })
+  const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await after.find({ key: 'tab-session' })).toBeUndefined()
+  expect(await lines(after)).toEqual(['▾ Medium 2', '#1 From before', '#2 Other session'])
+  await after.unmount()
+
+  // To another session, an issue noted here is one of the rest.
+  await $.tool.call({ tool: NOTE, title: 'Noted here too' })
+  seen.session = 'session-b'
+  const other = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await other.find({ key: 'tab-session' })).toBeUndefined()
   await other.unmount()
 })
 

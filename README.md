@@ -51,7 +51,10 @@ with `/issues`. Entries are grouped under **▾ High**, **▾ Medium** and **▾
 a group's heading to fold it (`▸ High 2`) or open it again. As in an accordion, the
 open groups share the pane's whole height, even with one or two entries each, and the
 folded ones sit at its bottom edge. Which groups are folded is remembered across
-sessions and projects. Each entry is a card with its number and title in bold, then, dimmed, the
+sessions and projects. Once the current session has noted something, two tabs sit at
+the top of the pane, **All 5** and **This session 2**: the second shows only the entries
+this session noted. The tab goes away again when none of them are left, and the pane
+then shows every entry. Each entry is a card with its number and title in bold, then, dimmed, the
 file on one line (shortened in the middle when it does not fit) and the detail cut to
 three lines. These are its controls:
 

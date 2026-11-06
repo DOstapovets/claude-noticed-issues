@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { Hook, Register } from 'claude-code'
 
-import type { GithubStatus, Issue, Priority, Stored } from '../types'
+import type { GithubStatus, Issue, Priority, Stored, Tab } from '../types'
 
 type Api = Parameters<Hook<'tool.call'>>[0]
 
@@ -19,6 +19,8 @@ const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
 // The priority groups folded in the pane, the same in every project.
 const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
 const COLLAPSED_KEY = 'collapsed'
+// The pane's tab, for this session only.
+const tab = atom({ plugin: 'noticed-issues', key: 'tab' } as const, 'all')
 
 // Set by session.start, which also runs again on every reload.
 let cwd = ''
@@ -404,7 +406,7 @@ export const register: Register = (on, options) => {
       return { result: `Already on the list as #${same.id}.` }
     }
 
-    const issue: Issue = { id: nextId, title, createdAt: await $.clock.now() }
+    const issue: Issue = { id: nextId, title, createdAt: await $.clock.now(), noticedIn: await $.session.id() }
     const detail = text(input.detail)
     const file = text(input.file)
     if (detail) issue.detail = detail
@@ -581,8 +583,26 @@ export const register: Register = (on, options) => {
       </Box>
     )
 
+    // The session tab is offered only while this session has noted something.
+    const session = await $.session.id()
+    const mine = list.filter(issue => issue.noticedIn === session)
+    const current: Tab = mine.length > 0 ? await read($, tab) : 'all'
+    const shown = current === 'session' ? mine : list
+
+    const tabButton = (value: Tab, label: string) => (
+      <Button key={`tab-${value}`} plain onPress={() => update($, tab, () => value)}>
+        {current === value ? (
+          <Text color="claude" bold underline>
+            {label}
+          </Text>
+        ) : (
+          <Text dimColor>{label}</Text>
+        )}
+      </Button>
+    )
+
     const folded = await read($, collapsed)
-    const groups = PRIORITIES.map((priority, i) => ({ priority, items: list.filter(issue => rank(issue) === i) })).filter(
+    const groups = PRIORITIES.map((priority, i) => ({ priority, items: shown.filter(issue => rank(issue) === i) })).filter(
       g => g.items.length > 0,
     )
     const open = groups.filter(g => !folded.includes(g.priority.value))
@@ -610,6 +630,12 @@ export const register: Register = (on, options) => {
           <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
           <Button key="feedback" plain dimColor label="✎ Feedback" onPress={() => startFeedback($)} />
         </Box>
+        {mine.length > 0 && (
+          <Box gap={3} marginBottom={1}>
+            {tabButton('all', `All ${list.length}`)}
+            {tabButton('session', `This session ${mine.length}`)}
+          </Box>
+        )}
         {list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
         {open.map(group)}
         {/* Folded groups sit at the bottom of the pane; with every group folded, the space above them stays empty. */}
