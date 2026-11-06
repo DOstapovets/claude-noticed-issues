@@ -166,6 +166,7 @@ test('issues are noted, deleted, resolved and kept per project', async ($, on) =
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   await ui.press({ key: 'delete-1' })
+  await ui.press({ key: 'confirm-delete-1' })
   await ui.unmount()
   expect(await flag($)).toBe('⚑ 1 issue')
 
@@ -487,6 +488,35 @@ test('tabs show every issue or only those this session noted, once it has noted 
   const other = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await other.find({ key: 'tab-session' })).toBeUndefined()
   await other.unmount()
+})
+
+test('the red ✕ in a card\'s corner asks once before it deletes', async ($, on) => {
+  engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale doc' })
+  await $.tool.call({ tool: NOTE, title: 'Typo in footer' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const cross = await ui.find({ key: 'delete-1' })
+  expect(cross?.text.trim()).toBe('✕')
+  expect((await ui.find({ type: 'Text', text: ' ✕ ' }))?.props.color).toBe('error')
+  expect(await ui.find({ key: 'confirm-delete-1' })).toBeUndefined()
+
+  // The first press only asks, and only on that card.
+  await ui.press({ key: 'delete-1' })
+  expect(await ui.find({ type: 'Text', text: 'Delete?' })).toBeDefined()
+  expect(await ui.find({ key: 'confirm-delete-2' })).toBeUndefined()
+  expect(await flag($)).toBe('⚑ 2 issues')
+
+  // ↩ takes it back; ✓ deletes.
+  await ui.press({ key: 'cancel-delete-1' })
+  expect(await ui.find({ key: 'confirm-delete-1' })).toBeUndefined()
+  expect(await flag($)).toBe('⚑ 2 issues')
+  await ui.press({ key: 'delete-1' })
+  await ui.press({ key: 'confirm-delete-1' })
+  expect(await flag($)).toBe('⚑ 1 issue')
+  expect(await lines(ui)).toEqual(['▾ Medium 1', '#2 Typo in footer'])
+  await ui.unmount()
 })
 
 test('a long detail is cut to three card lines, the file kept on a line of its own', async ($, on) => {

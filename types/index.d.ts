@@ -38,6 +38,8 @@ declare module 'claude-code' {
       collapsed: Priority[]
       /** The pane's tab: every issue, or only those this session noted. */
       tab: Tab
+      /** The issue whose ✕ was pressed once and now asks to confirm, if any. */
+      deleting: number | null
     }
   }
 }

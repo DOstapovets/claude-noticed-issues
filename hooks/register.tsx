@@ -21,6 +21,8 @@ const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, 
 const COLLAPSED_KEY = 'collapsed'
 // The pane's tab, for this session only.
 const tab = atom({ plugin: 'noticed-issues', key: 'tab' } as const, 'all')
+// The card whose ✕ asks to confirm, for this session only.
+const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, null)
 
 // Set by session.start, which also runs again on every reload.
 let cwd = ''
@@ -314,6 +316,11 @@ const remove = async ($: Api, id: number) => {
   await save($, (await read($, issues)).filter(i => i.id !== id))
 }
 
+const confirmRemove = async ($: Api, id: number) => {
+  await update($, deleting, () => null)
+  await remove($, id)
+}
+
 const GITHUB_ISSUE = /https:\/\/\S+\/issues\/\d+/
 
 const SESSION_ID = /\b[0-9a-f]{8}(?:-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\b/
@@ -491,6 +498,29 @@ export const register: Register = (on, options) => {
 
     // Inside a card: its border and padding take two columns a side.
     const cardColumns = Math.max(20, e.props.bodyColumns - 4)
+    const confirming = await read($, deleting)
+
+    // The card's top right corner: a red ✕, which asks once before it deletes.
+    const corner = (issue: Issue) =>
+      confirming === issue.id ? (
+        <Box flexShrink={0} marginLeft={1}>
+          <Text color="error">Delete?</Text>
+          <Button key={`confirm-delete-${issue.id}`} plain onPress={() => confirmRemove($, issue.id)}>
+            <Text color="error" bold>
+              {' ✓ '}
+            </Text>
+          </Button>
+          <Button key={`cancel-delete-${issue.id}`} plain dimColor label=" ↩ " onPress={() => update($, deleting, () => null)} />
+        </Box>
+      ) : (
+        <Box flexShrink={0} marginLeft={1}>
+          <Button key={`delete-${issue.id}`} plain onPress={() => update($, deleting, () => issue.id)}>
+            <Text color="error" bold>
+              {' ✕ '}
+            </Text>
+          </Button>
+        </Box>
+      )
 
     const card = (issue: Issue) => (
       <Box
@@ -502,35 +532,38 @@ export const register: Register = (on, options) => {
         borderDimColor
         hover={{ borderColor: 'claude', borderDimColor: false }}
       >
-        {issue.githubUrl ? (
-          // A linked issue: number, link and status on a line of their own that
-          // never wraps, the title below at the card's full width.
-          <Box key={`head-${issue.id}`} flexDirection="column">
-            <Box flexShrink={0}>
-              <Text color="claude" bold>
-                #{issue.id}
-              </Text>
-              <Box marginLeft={2} flexShrink={0}>
-                <Link href={issue.githubUrl} label={`↗ #${issue.githubUrl.split('/').pop()}`} />
-                {issue.github && (
-                  <Text color="success"> · open{issue.github.board ? ` · ${issue.github.board}` : ''}</Text>
-                )}
+        <Box justifyContent="space-between">
+          {issue.githubUrl ? (
+            // A linked issue: number, link and status on a line of their own that
+            // never wraps, the title below at the card's full width.
+            <Box key={`head-${issue.id}`} flexDirection="column" flexGrow={1} flexShrink={1}>
+              <Box flexShrink={0}>
+                <Text color="claude" bold>
+                  #{issue.id}
+                </Text>
+                <Box marginLeft={2} flexShrink={0}>
+                  <Link href={issue.githubUrl} label={`↗ #${issue.githubUrl.split('/').pop()}`} />
+                  {issue.github && (
+                    <Text color="success"> · open{issue.github.board ? ` · ${issue.github.board}` : ''}</Text>
+                  )}
+                </Box>
               </Box>
+              <Text bold wrap="wrap">
+                {issue.title}
+              </Text>
             </Box>
-            <Text bold wrap="wrap">
-              {issue.title}
-            </Text>
-          </Box>
-        ) : (
-          <Box key={`head-${issue.id}`}>
-            <Text wrap="wrap">
-              <Text color="claude" bold>
-                #{issue.id}
-              </Text>{' '}
-              <Text bold>{issue.title}</Text>
-            </Text>
-          </Box>
-        )}
+          ) : (
+            <Box key={`head-${issue.id}`} flexGrow={1} flexShrink={1}>
+              <Text wrap="wrap">
+                <Text color="claude" bold>
+                  #{issue.id}
+                </Text>{' '}
+                <Text bold>{issue.title}</Text>
+              </Text>
+            </Box>
+          )}
+          {corner(issue)}
+        </Box>
         {issue.file && (
           <Text dimColor wrap="truncate-middle">
             {issue.file}
@@ -560,7 +593,6 @@ export const register: Register = (on, options) => {
                 onPress={() => createGithubIssue($, issue.id)}
               />
             )}
-            <Button key={`delete-${issue.id}`} label="✕ Delete" dimColor onPress={() => remove($, issue.id)} />
           </Box>
           {/* At the right edge, each arrow in the color of the group it moves the issue to,
               padded with a space a side so it is easier to hit. */}

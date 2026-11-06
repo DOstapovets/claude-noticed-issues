@@ -66,7 +66,8 @@ three lines. These are its controls:
   heading then links it next to the number, on a line of its own above the title:
   `#3  ↗ #42 · open · 📋 To do`, with the column of the project board it is on, if any.
   Shown only where GitHub is on: see [Settings](#settings).
-- **✕ Delete** removes the entry.
+- **✕**, red, in the card's top right corner, deletes the entry. The first press only
+  asks, `Delete? ✓ ↩`: **✓** deletes it, **↩** leaves it be.
 - **▲ / ▼**, at the card's right edge, move it one priority up or down; each is drawn
   in the color of the group it moves the issue to.
 
