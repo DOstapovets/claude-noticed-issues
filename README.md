@@ -97,7 +97,9 @@ is left out, as VS Code titles the pane, with **✎ Feedback** on the tabs' row.
 **✎ Feedback**, in the pane's heading, is for reporting something about this plugin
 itself. It starts a background session (`claude attach <id>` joins it, as the toast
 says) that asks you what it is, a bug, a feature request, or a question or idea, and
-what that needs. It collects the Claude Code and plugin versions by itself, looks for
+what that needs. It collects the Claude Code and plugin versions by itself, is told
+where you started it (the terminal and its layout, the desktop app or VS Code, with
+the extension's version there), looks for
 an existing issue or discussion on the same thing, and shows you a draft. Only once
 you confirm does it post: a bug or feature request as an issue in this repository, a
 question or idea as a discussion, and it gives you the link.

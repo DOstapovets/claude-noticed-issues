@@ -52,6 +52,8 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     viewed: [] as string[],
     // What `session.id` answers.
     session: 'session-a',
+    // What `session.surfaces` answers.
+    surfaces: ['terminal'] as string[],
   }
   mock.store(on, stored)
   // The engine's own band, which the count must not replace.
@@ -71,6 +73,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.id', () => ({ value: seen.session }))
+  on('session.surfaces', () => ({ value: seen.surfaces as never }))
   on('session.repo', () => ({
     value: seen.repo === null ? null : { root: seen.repo, remote: seen.remote, internal: false, name: null },
   }))
@@ -739,6 +742,57 @@ test('Feedback starts a session that interviews the user and posts only once the
   })
   expect(ran.text).toContain('Feedback session started')
   expect(seen.argv).toHaveLength(2)
+})
+
+test('Feedback tells the session where it was started from', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  const prompt = () => seen.argv.at(-1)?.[2] ?? ''
+
+  const press = async (surface: 'terminal' | 'desktop' | 'vscode') => {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    await ui.press({ key: 'feedback' })
+    await ui.unmount()
+    return prompt()
+  }
+
+  expect(await press('terminal')).toContain('I started this feedback from Terminal')
+  expect(prompt()).not.toContain('VS Code extension')
+  seen.surfaces = ['vscode']
+  expect(await press('vscode')).toContain('I started this feedback from VS Code.')
+  expect(prompt()).toContain('code --list-extensions --show-versions')
+  seen.surfaces = ['desktop']
+  expect(await press('desktop')).toContain('I started this feedback from Desktop app.')
+
+  // Typed at the terminal: the run says the layout.
+  seen.surfaces = ['terminal']
+  await $.command.run({
+    command: 'issues',
+    args: 'feedback',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 120 },
+  })
+  expect(prompt()).toContain('from Terminal, main screen.')
+
+  // From the VS Code extension's prompt: the one surface the session draws on.
+  seen.surfaces = ['vscode']
+  await $.command.run({
+    command: 'issues',
+    args: 'feedback',
+    origin: { kind: 'sdk' },
+    presentation: { isFullscreen: false, columns: 80 },
+  })
+  expect(prompt()).toContain('from VS Code.')
+
+  // Several surfaces and no telling which: the session asks.
+  seen.surfaces = ['vscode', 'mobile']
+  await $.command.run({
+    command: 'issues',
+    args: 'feedback',
+    origin: { kind: 'sdk' },
+    presentation: { isFullscreen: false, columns: 80 },
+  })
+  expect(prompt()).toContain('is not known: ask it')
 })
 
 test('both tools stay in the prompt rather than behind ToolSearch', async ($, on) => {

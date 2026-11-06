@@ -471,17 +471,53 @@ let paneOnTerminal = true
 // Where reports about the plugin itself go.
 const PLUGIN_REPO = 'DOstapovets/claude-noticed-issues'
 
-const FEEDBACK_PROMPT = [
+// Where feedback was started from, as the bug report's "Where you run Claude Code" names it.
+// A background session draws nowhere, so it cannot tell this itself.
+const whereRun = (surface: string | undefined, isFullscreen: boolean | undefined) => {
+  switch (surface) {
+    case 'terminal':
+      return isFullscreen === undefined
+        ? 'Terminal'
+        : isFullscreen
+          ? 'Terminal, fullscreen layout'
+          : 'Terminal, main screen'
+    case 'desktop':
+      return 'Desktop app'
+    case 'vscode':
+      return 'VS Code'
+    case 'mobile':
+      return 'Other (the mobile app)'
+    default:
+      return undefined
+  }
+}
+
+// Whether the pane was last drawn in the terminal's fullscreen layout, for feedback from its button.
+let paneFullscreen: boolean | undefined
+
+const feedbackPrompt = (where: string | undefined, surfaces: readonly string[]) => [
   `Help me send feedback about the noticed-issues Claude Code plugin to its GitHub repository, ${PLUGIN_REPO}.`,
   '1. Interview me with AskUserQuestion, a few questions at a time. First: is it a bug, a feature request, or a question or idea to talk through? Then what that kind needs: for a bug, what happened, the steps and what I expected; for a feature, the problem and what I would like; for a question or idea, the question itself.',
-  '2. Collect the environment yourself rather than asking: `claude --version`, the noticed-issues version from `claude plugin list`, the OS, and whether this terminal uses the fullscreen layout. Leave out tokens, internal hostnames, private repository names and the contents of my projects.',
+  [
+    '2. Collect the environment yourself rather than asking: `claude --version`, the noticed-issues version from `claude plugin list` and the OS.',
+    where
+      ? `Where I run Claude Code is known, as this session cannot see it: I started this feedback from ${where}${surfaces.length > 1 ? ` (my session draws on: ${surfaces.join(', ')})` : ''}. Put that under "Where you run Claude Code" without asking.`
+      : 'Where I run Claude Code (terminal with the fullscreen layout or the main screen, the desktop app, VS Code) is not known: ask it with the other questions.',
+    where === 'VS Code' || surfaces.includes('vscode')
+      ? 'Add the Claude Code VS Code extension\'s version too: `code --list-extensions --show-versions | grep anthropic.claude-code`, or the `anthropic.claude-code-*` folder name under `~/.vscode/extensions`.'
+      : '',
+    'Leave out tokens, internal hostnames, private repository names and the contents of my projects.',
+  ]
+    .filter(Boolean)
+    .join(' '),
   `3. Look for an existing issue or discussion on the same thing (\`gh issue list --repo ${PLUGIN_REPO} --state all --search ...\`, and discussions through \`gh api graphql\`). If there is one, show it and offer to add a comment there instead.`,
   '4. Draft the title and body. A bug: sections What happened, Steps to reproduce, Plugin version, Claude Code version, Where you run Claude Code, Logs or screenshots. A feature: The problem, What you would like, Alternatives you considered. Show me the draft and post nothing until I confirm it.',
   `5. Once I confirm: a bug or a feature request becomes an issue, \`gh issue create --repo ${PLUGIN_REPO} --title ... --body-file ...\`; a question or an idea becomes a discussion through \`gh api graphql\` and its createDiscussion mutation, in the Q&A category for a question and Ideas for an idea (look up the repository id and the category ids first). Give me the link.`,
 ].join('\n')
 
-const startFeedback = async ($: Api) => {
-  const sessionId = await background($, FEEDBACK_PROMPT, 'feedback')
+const startFeedback = async ($: Api, where: string | undefined) => {
+  const surfaces = await $.session.surfaces()
+  const sessionId = await background($, feedbackPrompt(where, surfaces), 'feedback')
 
   if (sessionId) {
     await $.ui.toast(`✎ Feedback session ${sessionId} is waiting for your answers · claude attach ${sessionId}`)
@@ -626,7 +662,16 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'issues' }, async ($, e) => {
     if (e.args.trim() === 'feedback') {
-      await startFeedback($)
+      // Typed at the terminal, the run says its layout; from elsewhere, the one surface
+      // the session draws on, if only one.
+      const surfaces = await $.session.surfaces()
+      const where =
+        e.origin.kind === 'composer' && surfaces.includes('terminal')
+          ? whereRun('terminal', e.presentation.isFullscreen)
+          : surfaces.length === 1
+            ? whereRun(surfaces[0], undefined)
+            : undefined
+      await startFeedback($, where)
       return { text: 'Feedback session started in the background: attach to it to answer its questions.' }
     }
 
@@ -719,6 +764,7 @@ export const register: Register = (on, options) => {
     // heights of its own, and a fixed height leaves gaps or cuts cards off.
     const fitsRows = e.surface === 'terminal'
     paneOnTerminal = fitsRows
+    if (fitsRows) paneFullscreen = e.viewport?.isFullscreen
     // VS Code's webview draws no `hover` (a Box drawn `display: "none"` stays hidden)
     // and a phone has no pointer, so there what a hover reveals is always shown.
     const hovers = e.surface !== 'vscode' && e.surface !== 'mobile'
@@ -896,7 +942,7 @@ export const register: Register = (on, options) => {
         plain
         dimColor
         label="✎ Feedback"
-        onPress={() => startFeedback($)}
+        onPress={press => startFeedback($, whereRun(press.surface, press.surface === 'terminal' ? paneFullscreen : undefined))}
       />
     )
     const tabs = (
