@@ -23,6 +23,8 @@ const COLLAPSED_KEY = 'collapsed'
 const tab = atom({ plugin: 'noticed-issues', key: 'tab' } as const, 'all')
 // The card whose ✕ asks to confirm, for this session only.
 const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, null)
+// Where each open group is scrolled to, for this session only.
+const scrolled = atom({ plugin: 'noticed-issues', key: 'scrolled' } as const, {})
 
 // Set by session.start, which also runs again on every reload.
 let cwd = ''
@@ -280,6 +282,49 @@ const shiftPriority = async ($: Api, id: number, step: -1 | 1) => {
   )
 }
 
+// What the pane lists: every issue, or this session's on its tab, offered
+// only while this session has noted something.
+const view = async ($: Api) => {
+  const list = await read($, issues)
+  const session = await $.session.id()
+  const mine = list.filter(issue => issue.noticedIn === session)
+  const current: Tab = mine.length > 0 ? await read($, tab) : 'all'
+
+  return { list, mine, current, shown: current === 'session' ? mine : list }
+}
+
+// Rows above the groups: the pane's heading, and the tabs with a blank line either side.
+const headRows = (hasTabs: boolean) => (hasTabs ? 4 : 1)
+
+// Each group's rows in the pane, top to bottom. The pane never scrolls as a
+// whole, so a heading stays on screen: a folded group takes its heading's
+// row, the open ones share the rest evenly and scroll their cards inside it.
+const arrange = (shown: Issue[], folded: Priority[], top: number, bodyRows: number) => {
+  const groups = PRIORITIES.map((priority, i) => ({
+    priority,
+    items: shown.filter(issue => rank(issue) === i),
+    isOpen: !folded.includes(priority.value),
+  })).filter(g => g.items.length > 0)
+  const open = groups.filter(g => g.isOpen).length
+  const free = Math.max(0, bodyRows - top - (groups.length - open))
+  let row = top
+  let spare = open > 0 ? free % open : 0
+
+  return groups.map(g => {
+    let rows = 1
+    if (g.isOpen) {
+      rows = Math.max(1, Math.floor(free / open) + (spare > 0 ? 1 : 0))
+      spare -= 1
+    }
+    const placed = { ...g, top: row, rows }
+    row += rows
+    return placed
+  })
+}
+
+// The first card a group shows: at most its last, so it never scrolls empty.
+const firstCard = (at: number | undefined, count: number) => Math.max(0, Math.min(at ?? 0, count - 1))
+
 const toggleGroup = async ($: Api, priority: Priority) => {
   const next = await update($, collapsed, list =>
     list.includes(priority) ? list.filter(p => p !== priority) : [...list, priority],
@@ -492,6 +537,22 @@ export const register: Register = (on, options) => {
     )
   })
 
+  // The wheel, or the scroll keys, move the open group under the pointer (the
+  // first open one for the keys) a card at a time; the pane itself stays put.
+  on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e) => {
+    const { mine, shown } = await view($)
+    const open = arrange(shown, await read($, collapsed), headRows(mine.length > 0), e.bodyRows).filter(g => g.isOpen)
+    const row = e.pointer?.row
+    const target = row === undefined ? open[0] : open.find(g => row >= g.top && row < g.top + g.rows)
+
+    if (target && e.by !== 0) {
+      const key = target.priority.value
+      await update($, scrolled, was => ({ ...was, [key]: firstCard((was[key] ?? 0) + Math.sign(e.by), target.items.length) }))
+    }
+
+    return {}
+  })
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button, Link } = $.ui.resolve(e)
     const list = await read($, issues)
@@ -528,6 +589,7 @@ export const register: Register = (on, options) => {
         flexDirection="column"
         marginBottom={1}
         paddingX={1}
+        flexShrink={0}
         borderStyle="round"
         borderDimColor
         hover={{ borderColor: 'claude', borderDimColor: false }}
@@ -617,10 +679,7 @@ export const register: Register = (on, options) => {
     )
 
     // The session tab is offered only while this session has noted something.
-    const session = await $.session.id()
-    const mine = list.filter(issue => issue.noticedIn === session)
-    const current: Tab = mine.length > 0 ? await read($, tab) : 'all'
-    const shown = current === 'session' ? mine : list
+    const { mine, current, shown } = await view($)
 
     // The current tab is filled with the accent color, the other drawn in it on the pane's background.
     const tabButton = (value: Tab, label: string) => (
@@ -635,29 +694,30 @@ export const register: Register = (on, options) => {
       </Button>
     )
 
-    const folded = await read($, collapsed)
-    const groups = PRIORITIES.map((priority, i) => ({ priority, items: shown.filter(issue => rank(issue) === i) })).filter(
-      g => g.items.length > 0,
-    )
+    const bodyRows = e.props.scroll.bodyRows
+    const groups = arrange(shown, await read($, collapsed), headRows(mine.length > 0), bodyRows)
+    const at = await read($, scrolled)
 
-    const group = ({ priority, items }: (typeof groups)[number]) => {
-      const isOpen = !folded.includes(priority.value)
+    const group = ({ priority, items, isOpen, rows }: (typeof groups)[number]) => {
+      const first = firstCard(at[priority.value], items.length)
 
       return (
-        // An open group grows: open groups share the pane's free height, as in an accordion.
-        <Box key={`priority-${priority.value}`} flexDirection="column" flexGrow={isOpen ? 1 : 0} flexShrink={0}>
-          <Button key={`group-${priority.value}`} plain onPress={() => toggleGroup($, priority.value)}>
-            <Text color={priority.color} bold>
-              {isOpen ? '▾' : '▸'} {priority.label} {items.length}
-            </Text>
-          </Button>
-          {isOpen && items.map(card)}
+        <Box key={`priority-${priority.value}`} flexDirection="column" height={rows} flexShrink={0} overflow="hidden">
+          <Box flexShrink={0}>
+            <Button key={`group-${priority.value}`} plain onPress={() => toggleGroup($, priority.value)}>
+              <Text color={priority.color} bold>
+                {isOpen ? '▾' : '▸'} {priority.label} {items.length}
+              </Text>
+            </Button>
+            {isOpen && first > 0 && <Text dimColor> ↑ {first} above</Text>}
+          </Box>
+          {isOpen && items.slice(first).map(card)}
         </Box>
       )
     }
 
     return (
-      <Box flexDirection="column" minHeight={e.props.scroll.bodyRows}>
+      <Box flexDirection="column" height={bodyRows} overflow="hidden">
         <Box justifyContent="space-between">
           <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
           <Button key="feedback" plain dimColor label="✎ Feedback" onPress={() => startFeedback($)} />

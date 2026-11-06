@@ -424,10 +424,11 @@ test('a priority group folds in its place, and stays folded', async ($, on) => {
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   await ui.press({ key: 'group-high' })
   expect(await lines(ui)).toEqual(['▸ High 1', '▾ Medium 1', '#2 Stale doc', '▾ Low 1', '#3 Typo in footer'])
-  // Open groups share the pane's free height; a folded one takes only its heading.
-  expect((await ui.find({ key: 'priority-medium' }))?.props.flexGrow).toBe(1)
-  expect((await ui.find({ key: 'priority-low' }))?.props.flexGrow).toBe(1)
-  expect((await ui.find({ key: 'priority-high' }))?.props.flexGrow).toBe(0)
+  // Open groups share the pane's free height evenly; a folded one takes only its heading.
+  // 40 rows: 4 for the heading and the tabs, 1 for High, 35 for the other two.
+  expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(18)
+  expect((await ui.find({ key: 'priority-low' }))?.props.height).toBe(17)
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(1)
   await ui.press({ key: 'group-medium' })
   expect(await lines(ui)).toEqual(['▸ High 1', '▸ Medium 1', '▾ Low 1', '#3 Typo in footer'])
   await ui.unmount()
@@ -492,6 +493,46 @@ test('tabs show every issue or only those this session noted, once it has noted 
   const other = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await other.find({ key: 'tab-session' })).toBeUndefined()
   await other.unmount()
+})
+
+test('each open group scrolls its cards under a heading that stays put', async ($, on) => {
+  engine(on)
+  await $.session.start(start('/proj/a'))
+  for (const n of [1, 2, 3]) await $.tool.call({ tool: NOTE, title: `Leak ${n}`, priority: 'high' })
+  for (const n of [1, 2]) await $.tool.call({ tool: NOTE, title: `Doc ${n}` })
+
+  // The pane never outgrows its rows, so the engine has nothing to scroll.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(18)
+  const scroll = (by: number, row?: number) =>
+    $.ui.scroll({
+      component: 'Pane',
+      requestId: 'noticed-issues',
+      offset: 0,
+      by,
+      bodyRows: 40,
+      contentRows: 40,
+      origin: { kind: 'person' },
+      ...(row === undefined ? {} : { pointer: { column: 10, row } }),
+    } as never)
+
+  // Rows 4 to 21 are High's, 22 to 39 Medium's.
+  await scroll(1, 10)
+  expect(await lines(ui)).toEqual(['▾ High 3', '#2 Leak 2', '#3 Leak 3', '▾ Medium 2', '#4 Doc 1', '#5 Doc 2'])
+  expect(await ui.find({ type: 'Text', text: / ↑ 1 above/ })).toBeDefined()
+  // Never past its last card, never above its first.
+  await scroll(3, 10)
+  await scroll(1, 10)
+  expect((await lines(ui)).slice(0, 2)).toEqual(['▾ High 3', '#3 Leak 3'])
+  await scroll(-1, 30)
+  await scroll(1, 30)
+  expect((await lines(ui)).slice(2)).toEqual(['▾ Medium 2', '#5 Doc 2'])
+  // The scroll keys, with no pointer, move the first open group.
+  await scroll(-1)
+  await scroll(-1)
+  await scroll(-1)
+  expect((await lines(ui)).slice(0, 2)).toEqual(['▾ High 3', '#1 Leak 1'])
+  await ui.unmount()
 })
 
 test('the red ✕ in a card\'s corner asks once before it deletes', async ($, on) => {

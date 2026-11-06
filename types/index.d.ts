@@ -40,6 +40,8 @@ declare module 'claude-code' {
       tab: Tab
       /** The issue whose ✕ was pressed once and now asks to confirm, if any. */
       deleting: number | null
+      /** Per open group, the first card it shows: each group scrolls on its own, under its heading. */
+      scrolled: Partial<Record<Priority, number>>
     }
   }
 }
