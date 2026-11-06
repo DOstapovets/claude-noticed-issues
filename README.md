@@ -147,14 +147,14 @@ Open sessions of the same project pick up each other's changes every 30 seconds.
 
 ```sh
 claude plugin validate .
-claude plugin test .          # hooks/register.test.tsx
+claude plugin test .          # hooks/*.test.ts(x)
 claude --plugin-dir .         # a session with this checkout loaded
 ```
 
 | File | What is in it |
 | --- | --- |
-| `hooks/register.tsx` | The whole plugin: tools, `/issues`, the count, the pane, GitHub. |
-| `hooks/register.test.tsx` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
+| `hooks/register.tsx` | The hooks module: tools, `/issues`, the count, and the files it imports for the store, GitHub, background sessions, layout and the pane (listed in [AGENTS.md](./AGENTS.md#layout)). |
+| `hooks/*.test.ts(x)` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
 | `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus` and `Stored` types and the `$.state` contract. |
 
 How to work on it, for people and agents alike, is in [AGENTS.md](./AGENTS.md); branch,
