@@ -817,6 +817,34 @@ test('a long detail is cut to three card lines, the file kept on a line of its o
   await ui.unmount()
 })
 
+test('a very long note is stored cut, and the answer says so', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  const title = 't'.repeat(300)
+  const long = await $.tool.call({ tool: NOTE, title, detail: 'd'.repeat(10_000), file: 'f'.repeat(600) })
+  expect(answer(long)).toBe(
+    'Noted as #1 (title cut to 200 characters, detail cut to 4000 characters, file cut to 500 characters); ' +
+      'the user sees it under /issues.',
+  )
+
+  // What was kept, as the fix session is told it.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'session-1' })
+  await ui.unmount()
+  expect(seen.argv.at(-1)?.[2]?.split('\n').slice(0, 3)).toEqual([
+    `Fix noticed issue #1: ${'t'.repeat(199)}…`,
+    `Where: ${'f'.repeat(499)}…`,
+    `Detail: ${'d'.repeat(3999)}…`,
+  ])
+
+  // The same title, whatever follows past the cut, is the same entry.
+  const dup = await $.tool.call({ tool: NOTE, title: `${title}, again` })
+  expect(answer(dup)).toBe('Already on the list as #1.')
+
+  const short = await $.tool.call({ tool: NOTE, title: 'Short', detail: 'd'.repeat(4000) })
+  expect(answer(short)).toBe('Noted as #2; the user sees it under /issues.')
+})
+
 test('Feedback starts a session that interviews the user and posts only once they confirm', async ($, on) => {
   const seen = engine(on)
   await $.session.start(start('/proj/a'))

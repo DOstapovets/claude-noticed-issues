@@ -40,7 +40,7 @@ Call `resolve_issue` once such an issue is fixed.
 
 | Tool | What it does |
 | --- | --- |
-| `note_issue` | Adds an entry: `title` (required), `detail`, `file` (`path[:line]`, a URL or a resource) and `priority` (`high`, `medium` or `low`; `medium` when left out). An entry with the same title, ignoring case, is not added twice. |
+| `note_issue` | Adds an entry: `title` (required), `detail`, `file` (`path[:line]`, a URL or a resource) and `priority` (`high`, `medium` or `low`; `medium` when left out). A field longer than its limit is cut, and the answer says so: `title` to 200 characters, `file` to 500, `detail` to 4000. An entry with the same title, ignoring case, is not added twice. |
 | `resolve_issue` | Removes an entry by its `id` once it is fixed or no longer relevant. |
 
 **A count above the prompt**, `⚑ 3 issues`, that opens the pane when pressed. Once the

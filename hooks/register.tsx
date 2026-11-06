@@ -412,6 +412,11 @@ const DETAIL_LINES = 3
 
 const clip = (value: string, max: number) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value)
 
+// The characters a note keeps of each field. The store is one JSON file for
+// every project and refuses a write past 4 MiB, so a pasted log must not go in
+// whole. 4000 is a screenful of detail, far more than a card shows.
+const LIMITS = { title: 200, detail: 4000, file: 500 } as const
+
 // The rows `text` takes wrapped at `width`, word by word, a word wider than a row broken.
 const wrappedRows = (text: string, width: number) => {
   let rows = 1
@@ -625,7 +630,14 @@ export const register: Register = (on, options) => {
 
   on('tool.call', { tool: NOTE }, async ($, e) => {
     const input = e as unknown as Record<string, unknown>
-    const title = text(input.title)
+    const cut: string[] = []
+    const field = (name: keyof typeof LIMITS) => {
+      const value = text(input[name])
+      if (value === undefined || value.length <= LIMITS[name]) return value
+      cut.push(`${name} cut to ${LIMITS[name]} characters`)
+      return clip(value, LIMITS[name])
+    }
+    const title = field('title')
 
     if (title === undefined) {
       return { result: 'Not noted: `title` is required.' }
@@ -639,8 +651,8 @@ export const register: Register = (on, options) => {
     }
 
     const issue: Issue = { id: nextId, title, createdAt: await $.clock.now(), noticedIn: await $.session.id() }
-    const detail = text(input.detail)
-    const file = text(input.file)
+    const detail = field('detail')
+    const file = field('file')
     if (detail) issue.detail = detail
     if (file) issue.file = file
     if (PRIORITIES.some(p => p.value === input.priority)) issue.priority = input.priority as Priority
@@ -650,7 +662,8 @@ export const register: Register = (on, options) => {
     await $.ui.toast(`⚑ noted #${issue.id}: ${title}`)
     void openPane($)
 
-    return { result: `Noted as #${issue.id}; the user sees it under /issues.` }
+    const note = cut.length > 0 ? ` (${cut.join(', ')})` : ''
+    return { result: `Noted as #${issue.id}${note}; the user sees it under /issues.` }
   })
 
   on('tool.call', { tool: RESOLVE }, async ($, e) => {
