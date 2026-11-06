@@ -35,6 +35,8 @@ git fetch origin
 git worktree add -b feat/<slug> .claude/worktrees/<slug> origin/main
 ```
 
+In Claude Code sessions in this repository, `.claude/hooks/guard-main-checkout.sh`
+enforces this: it blocks edits and branch switches in the main working tree.
 `.claude/worktrees/` is git-ignored. Try the branch with
 `claude --plugin-dir .claude/worktrees/<slug>`. After the merge, remove the worktree
 with `git worktree remove .claude/worktrees/<slug>`.

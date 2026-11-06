@@ -51,6 +51,15 @@ marketplace. In that case load the `plugin-authoring` skill, which writes
 `tsconfig.json` kept outside the repository at that file and at `hooks/` and
 `types/`; the header of the file lists the compiler options.
 
+Two hooks in `.claude/settings.json` enforce some of this for Claude Code sessions in
+the repository. The scripts are in `.claude/hooks/`:
+
+- `check-plugin.sh` runs `validate` and `test` after every edit under `hooks/` or
+  `types/`, and sends a failure back to the agent.
+- `guard-main-checkout.sh` blocks edits, `git switch` and `git checkout` in the
+  repository's main working tree (switching back to `main` is allowed) and asks for a
+  worktree instead (see below).
+
 A passing suite does not show how the pane looks. The test kit does not draw
 hover, colors or real wrapping, so check anything visual in a real session (below)
 and say in the PR that you did.
