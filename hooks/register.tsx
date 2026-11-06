@@ -221,14 +221,15 @@ const githubStatus = async ($: Api, url: string): Promise<GithubStatus | undefin
     .run(['gh', 'issue', 'view', url, '--json', 'state,projectItems'], { cwd })
     .catch(() => undefined)
 
-  const viewed = ran?.exitCode === 0 ? (parse(ran.stdout) as Viewed | undefined) : undefined
+  const viewed = ran?.exitCode === 0 ? (parse(ran.stdout) as Partial<Viewed> | null | undefined) : undefined
 
-  if (!viewed) {
+  // An answer of another shape skips the issue this pass.
+  if ((viewed?.state !== 'OPEN' && viewed?.state !== 'CLOSED') || !Array.isArray(viewed.projectItems)) {
     return undefined
   }
 
   const status: GithubStatus = { state: viewed.state }
-  const board = viewed.projectItems.find(item => item.status)?.status?.name
+  const board = viewed.projectItems.find(item => item?.status)?.status?.name
   if (board) status.board = board
 
   return status
@@ -243,11 +244,15 @@ const refreshGithub = async ($: Api) => {
 
   refreshing = true
   const statuses = new Map<number, GithubStatus>()
-  for (const issue of linked) {
-    const status = await githubStatus($, issue.githubUrl!)
-    if (status) statuses.set(issue.id, status)
+  try {
+    for (const issue of linked) {
+      const status = await githubStatus($, issue.githubUrl!)
+      if (status) statuses.set(issue.id, status)
+    }
+  } finally {
+    // Whatever went wrong, the next pass still runs.
+    refreshing = false
   }
-  refreshing = false
 
   if (statuses.size === 0) {
     return

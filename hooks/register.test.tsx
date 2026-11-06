@@ -368,6 +368,28 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', G
   await later.unmount()
 })
 
+test('an odd answer from gh skips that issue and later passes still read it', GITHUB_ON, async ($, on) => {
+  const seen = engine(on, {
+    'issues:/proj/a': {
+      nextId: 2,
+      items: [{ id: 1, title: 'Linked', createdAt: 1, githubUrl: 'https://github.com/o/r/issues/7' }],
+    },
+  })
+  // Valid JSON, but not the shape asked for.
+  seen.github = { state: 'OPEN' }
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  expect(seen.viewed).toHaveLength(1)
+  expect(await flag($)).toBe('⚑ 1 issue')
+
+  seen.github = { state: 'OPEN', projectItems: [{ status: { name: '📋 To do' }, title: 'Roadmap' }] }
+  await seen.clock.advance(5 * 60_000)
+  expect(seen.viewed).toHaveLength(2)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await lines(ui)).find(line => line.startsWith('#1 '))).toMatch(/^#1 ↗ #7 · open · 📋 To do/)
+  await ui.unmount()
+})
+
 test('auto offers GitHub only where origin is on github.com', async ($, on) => {
   const seen = engine(on, {
     'issues:/repo': {
