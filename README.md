@@ -50,16 +50,18 @@ hidden while the list is empty, and any band another plugin draws there stays be
 with `/issues`. Entries are grouped under **▾ High**, **▾ Medium** and **▾ Low**. Press
 a group's heading to fold it (`▸ High 2`) or open it again: folded groups move to the
 bottom of the pane, and which ones are folded is remembered across sessions and
-projects. Each entry is a card with its number, title, file and detail, and these
-controls:
+projects. Each entry is a card with its number and title in bold, then, dimmed, the
+file on one line (shortened in the middle when it does not fit) and the detail cut to
+three lines. These are its controls:
 
 - **▶ New session** starts `claude --bg` with a prompt to fix the issue that ends by
   asking it to call `resolve_issue`. The card then shows the session id, which
   `claude attach <id>` connects to.
 - **↗ GitHub issue** files it with `gh issue create` in the repository of the session's
   directory: the title becomes the issue title, `detail` and `file` its body. The card's
-  heading then links it next to the number, `#3 ↗ GitHub #42 · open · 📋 To do`, with
-  the column of the project board it is on, if any. Shown only where GitHub is on: see [Settings](#settings).
+  heading then links it next to the number, on a line of its own above the title:
+  `#3  ↗ #42 · open · 📋 To do`, with the column of the project board it is on, if any.
+  Shown only where GitHub is on: see [Settings](#settings).
 - **✕ Delete** removes the entry.
 - **▲ / ▼**, at the card's right edge, move it one priority up or down; each is drawn
   in the color of the group it moves the issue to.

@@ -133,7 +133,7 @@ const lines = async (ui: { findAll: (query: object) => Promise<{ type: string; k
     el.type === 'Text' && /^[▾▸] /.test(el.text)
       ? [el.text]
       : el.key?.startsWith('head-')
-        ? [el.text.replace(/^(#\d+)/, '$1 ')]
+        ? [el.text.replace(/^(#\d+) ?/, '$1 ')]
         : [],
   )
 
@@ -248,7 +248,7 @@ test('a GitHub issue is created for an issue', GITHUB_ON, async ($, on) => {
   // The pane now links the issue instead of offering the button.
   const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await after.find({ key: 'github-1' })).toBeUndefined()
-  expect(await after.find({ type: 'Link', text: /GitHub #42/ })).toBeDefined()
+  expect(await after.find({ type: 'Link', text: /↗ #42/ })).toBeDefined()
   await after.press({ key: 'session-1' })
   await after.unmount()
   expect(seen.argv.at(-1)?.[2]).toContain('GitHub issue: https://github.com/o/r/issues/42')
@@ -273,7 +273,7 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', G
   expect(seen.viewed).toEqual(['https://github.com/o/r/issues/7', 'https://github.com/o/r/issues/8'])
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   // The link and its status sit in the card's heading, after the number.
-  expect((await lines(ui))[1]).toMatch(/^#1 ↗ GitHub #7 · open · 📋 To do/)
+  expect((await lines(ui))[1]).toMatch(/^#1 ↗ #7 · open · 📋 To do/)
   await ui.unmount()
 
   // Closed on GitHub, as not planned: gone on the next pass, here the one `/issues` starts.
@@ -315,7 +315,7 @@ test('auto offers GitHub only where origin is on github.com', async ($, on) => {
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
     const button = await ui.find({ key: 'github-2' })
     // A link made earlier stays whatever the setting.
-    expect(await ui.find({ type: 'Link', text: /GitHub #7/ })).toBeDefined()
+    expect(await ui.find({ type: 'Link', text: /↗ #7/ })).toBeDefined()
     await ui.unmount()
     return button !== undefined
   }
@@ -432,6 +432,21 @@ test('a priority group folds to the bottom of the pane, and stays folded', async
   await other.press({ key: 'group-high' })
   expect(await lines(other)).toEqual(['▾ High 1', '#1 Other project'])
   await other.unmount()
+})
+
+test('a long detail is cut to three card lines, the file kept on a line of its own', async ($, on) => {
+  engine(on)
+  await $.session.start(start('/proj/a'))
+  const detail = 'word '.repeat(100).trim()
+  await $.tool.call({ tool: NOTE, title: 'Long', detail, file: 'specs/a/very/long/path/to/some.spec.js' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const cut = await ui.find({ type: 'Text', text: /^word/ })
+  // The pane is 60 columns, the card's text 56 of them.
+  expect(cut?.text.length).toBe(3 * 56)
+  expect(cut?.text.endsWith('…')).toBe(true)
+  expect((await ui.find({ type: 'Text', text: 'specs/a/very/long/path/to/some.spec.js' }))?.props.wrap).toBe('truncate-middle')
+  await ui.unmount()
 })
 
 test('both tools stay in the prompt rather than behind ToolSearch', async ($, on) => {

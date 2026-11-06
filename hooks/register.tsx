@@ -273,6 +273,11 @@ const toggleGroup = async ($: Api, priority: Priority) => {
   await $.store.set(COLLAPSED_KEY, next)
 }
 
+// A detail longer than this many card lines is cut; the GitHub issue keeps it whole.
+const DETAIL_LINES = 3
+
+const clip = (value: string, max: number) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value)
+
 const remove = async ($: Api, id: number) => {
   await save($, (await read($, issues)).filter(i => i.id !== id))
 }
@@ -446,6 +451,9 @@ export const register: Register = (on, options) => {
     const { Box, Text, Button, Link } = $.ui.resolve(e)
     const list = await read($, issues)
 
+    // Inside a card: its border and padding take two columns a side.
+    const cardColumns = Math.max(20, e.props.bodyColumns - 4)
+
     const card = (issue: Issue) => (
       <Box
         key={`issue-${issue.id}`}
@@ -456,25 +464,43 @@ export const register: Register = (on, options) => {
         borderDimColor
         hover={{ borderColor: 'claude', borderDimColor: false }}
       >
-        <Box key={`head-${issue.id}`}>
-          <Text color="claude" bold>
-            #{issue.id}
-          </Text>
-          {issue.githubUrl && (
-            <Box marginLeft={1}>
-              <Link href={issue.githubUrl} label={`↗ GitHub #${issue.githubUrl.split('/').pop()}`} />
-              {issue.github && (
-                <Text color="success"> · open{issue.github.board ? ` · ${issue.github.board}` : ''}</Text>
-              )}
+        {issue.githubUrl ? (
+          // A linked issue: number, link and status on a line of their own that
+          // never wraps, the title below at the card's full width.
+          <Box key={`head-${issue.id}`} flexDirection="column">
+            <Box flexShrink={0}>
+              <Text color="claude" bold>
+                #{issue.id}
+              </Text>
+              <Box marginLeft={2} flexShrink={0}>
+                <Link href={issue.githubUrl} label={`↗ #${issue.githubUrl.split('/').pop()}`} />
+                {issue.github && (
+                  <Text color="success"> · open{issue.github.board ? ` · ${issue.github.board}` : ''}</Text>
+                )}
+              </Box>
             </Box>
-          )}
-          <Box marginLeft={1} flexShrink={1}>
-            <Text wrap="wrap">{issue.title}</Text>
+            <Text bold wrap="wrap">
+              {issue.title}
+            </Text>
           </Box>
-        </Box>
-        {(issue.file || issue.detail) && (
+        ) : (
+          <Box key={`head-${issue.id}`}>
+            <Text wrap="wrap">
+              <Text color="claude" bold>
+                #{issue.id}
+              </Text>{' '}
+              <Text bold>{issue.title}</Text>
+            </Text>
+          </Box>
+        )}
+        {issue.file && (
+          <Text dimColor wrap="truncate-middle">
+            {issue.file}
+          </Text>
+        )}
+        {issue.detail && (
           <Text dimColor wrap="wrap">
-            {[issue.file, issue.detail].filter(Boolean).join(' — ')}
+            {clip(issue.detail, DETAIL_LINES * cardColumns)}
           </Text>
         )}
         <Box justifyContent="space-between">
