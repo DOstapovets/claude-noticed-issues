@@ -48,9 +48,10 @@ hidden while the list is empty, and any band another plugin draws there stays be
 
 **The "Noticed issues" pane** opens by itself when the list has something on it, and
 with `/issues`. Entries are grouped under **▾ High**, **▾ Medium** and **▾ Low**. Press
-a group's heading to fold it (`▸ High 2`) or open it again: folded groups move to the
-bottom of the pane, and which ones are folded is remembered across sessions and
-projects. Each entry is a card with its number and title in bold, then, dimmed, the
+a group's heading to fold it (`▸ High 2`) or open it again. As in an accordion, the
+open groups share the pane's whole height, even with one or two entries each, and the
+folded ones sit at its bottom edge. Which groups are folded is remembered across
+sessions and projects. Each entry is a card with its number and title in bold, then, dimmed, the
 file on one line (shortened in the middle when it does not fit) and the detail cut to
 three lines. These are its controls:
 

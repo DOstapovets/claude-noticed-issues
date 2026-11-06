@@ -420,6 +420,10 @@ test('a priority group folds to the bottom of the pane, and stays folded', async
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   await ui.press({ key: 'group-high' })
   expect(await lines(ui)).toEqual(['▾ Medium 1', '#2 Stale doc', '▾ Low 1', '#3 Typo in footer', '▸ High 1'])
+  // Open groups share the pane's free height; a folded one takes only its heading.
+  expect((await ui.find({ key: 'priority-medium' }))?.props.flexGrow).toBe(1)
+  expect((await ui.find({ key: 'priority-low' }))?.props.flexGrow).toBe(1)
+  expect((await ui.find({ key: 'priority-high' }))?.props.flexGrow).toBe(0)
   await ui.press({ key: 'group-medium' })
   expect(await lines(ui)).toEqual(['▾ Low 1', '#3 Typo in footer', '▸ High 1', '▸ Medium 1'])
   await ui.unmount()

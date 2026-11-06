@@ -556,7 +556,8 @@ export const register: Register = (on, options) => {
       const isOpen = !folded.includes(priority.value)
 
       return (
-        <Box key={`priority-${priority.value}`} flexDirection="column">
+        // An open group grows: open groups share the pane's free height, as in an accordion.
+        <Box key={`priority-${priority.value}`} flexDirection="column" flexGrow={isOpen ? 1 : 0} flexShrink={0}>
           <Button key={`group-${priority.value}`} plain onPress={() => toggleGroup($, priority.value)}>
             <Text color={priority.color} bold>
               {isOpen ? '▾' : '▸'} {priority.label} {items.length}
@@ -572,8 +573,8 @@ export const register: Register = (on, options) => {
         <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
         {list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
         {open.map(group)}
-        {/* Folded groups sit at the bottom of the pane, below whatever space is left. */}
-        {shut.length > 0 && <Box flexGrow={1} />}
+        {/* Folded groups sit at the bottom of the pane; with every group folded, the space above them stays empty. */}
+        {open.length === 0 && shut.length > 0 && <Box flexGrow={1} />}
         {shut.map(group)}
       </Box>
     )
