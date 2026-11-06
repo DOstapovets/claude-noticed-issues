@@ -520,7 +520,7 @@ export const register: Register = (on, options) => {
   // that opens the pane. It wraps the band beneath rather than replacing it,
   // so task-progress's bar stays on screen whichever plugin draws first.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const list = await read($, issues)
+    const { list, mine } = await view($)
     const below = await next(e)
 
     if (e.props.hasSurvey || list.length === 0) {
@@ -531,7 +531,12 @@ export const register: Register = (on, options) => {
 
     return (
       <Box flexDirection="column">
-        <Button key="open-issues" plain label={`⚑ ${count(list.length)}`} onPress={() => openPane($)} />
+        <Button
+          key="open-issues"
+          plain
+          label={`⚑ ${count(list.length)}${mine.length > 0 ? ` · ${mine.length} this session` : ''}`}
+          onPress={() => openPane($)}
+        />
         {below}
       </Box>
     )

@@ -155,7 +155,7 @@ test('issues are noted, deleted, resolved and kept per project', async ($, on) =
   await $.tool.call({ tool: NOTE, title: 'Jest gate red on master', detail: 'since 2026-08-26' })
   const dup = await $.tool.call({ tool: NOTE, title: 'jest gate red on master' })
   expect(answer(dup)).toContain('Already on the list as #2')
-  expect(await flag($)).toBe('⚑ 2 issues')
+  expect(await flag($)).toBe('⚑ 2 issues · 2 this session')
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
@@ -168,7 +168,7 @@ test('issues are noted, deleted, resolved and kept per project', async ($, on) =
   await ui.press({ key: 'delete-1' })
   await ui.press({ key: 'confirm-delete-1' })
   await ui.unmount()
-  expect(await flag($)).toBe('⚑ 1 issue')
+  expect(await flag($)).toBe('⚑ 1 issue · 1 this session')
 
   await $.tool.call({ tool: RESOLVE, id: 2 })
   expect(await flag($)).toBeUndefined()
@@ -181,7 +181,7 @@ test('issues are noted, deleted, resolved and kept per project', async ($, on) =
   expect(await flag($)).toBeUndefined()
   const opened = seen.opened
   await $.session.start(start('/proj/a'))
-  expect(await flag($)).toBe('⚑ 1 issue')
+  expect(await flag($)).toBe('⚑ 1 issue · 1 this session')
   expect(seen.opened).toBe(opened + 1)
 
   const back = await $.ui.mount({ ...PANE, surface: 'terminal' })
@@ -489,7 +489,9 @@ test('tabs show every issue or only those this session noted, once it has noted 
 
   // To another session, an issue noted here is one of the rest.
   await $.tool.call({ tool: NOTE, title: 'Noted here too' })
+  expect(await flag($)).toBe('⚑ 3 issues · 1 this session')
   seen.session = 'session-b'
+  expect(await flag($)).toBe('⚑ 3 issues')
   const other = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await other.find({ key: 'tab-session' })).toBeUndefined()
   await other.unmount()
@@ -551,15 +553,15 @@ test('the red ✕ in a card\'s corner asks once before it deletes', async ($, on
   await ui.press({ key: 'delete-1' })
   expect(await ui.find({ type: 'Text', text: 'Delete?' })).toBeDefined()
   expect(await ui.find({ key: 'confirm-delete-2' })).toBeUndefined()
-  expect(await flag($)).toBe('⚑ 2 issues')
+  expect(await flag($)).toBe('⚑ 2 issues · 2 this session')
 
   // ↩ takes it back; ✓ deletes.
   await ui.press({ key: 'cancel-delete-1' })
   expect(await ui.find({ key: 'confirm-delete-1' })).toBeUndefined()
-  expect(await flag($)).toBe('⚑ 2 issues')
+  expect(await flag($)).toBe('⚑ 2 issues · 2 this session')
   await ui.press({ key: 'delete-1' })
   await ui.press({ key: 'confirm-delete-1' })
-  expect(await flag($)).toBe('⚑ 1 issue')
+  expect(await flag($)).toBe('⚑ 1 issue · 1 this session')
   expect(await lines(ui)).toEqual(['▾ Medium 1', '#2 Typo in footer'])
   await ui.unmount()
 })
@@ -656,7 +658,7 @@ test('worktrees share the repository list, and their old lists fold into it', as
 
   // The main working tree reads the same list, folded once.
   await $.session.start(start('/repo'))
-  expect(await flag($)).toBe('⚑ 4 issues')
+  expect(await flag($)).toBe('⚑ 4 issues · 1 this session')
 
   // The nested repository kept its own.
   seen.repo = '/repo/vendor/lib'

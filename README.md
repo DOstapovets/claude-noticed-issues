@@ -43,7 +43,8 @@ Call `resolve_issue` once such an issue is fixed.
 | `note_issue` | Adds an entry: `title` (required), `detail`, `file` (`path[:line]`, a URL or a resource) and `priority` (`high`, `medium` or `low`; `medium` when left out). An entry with the same title, ignoring case, is not added twice. |
 | `resolve_issue` | Removes an entry by its `id` once it is fixed or no longer relevant. |
 
-**A count above the prompt**, `⚑ 3 issues`, that opens the pane when pressed. It is
+**A count above the prompt**, `⚑ 3 issues`, that opens the pane when pressed. Once the
+current session has noted something it says how many, `⚑ 3 issues · 1 this session`. It is
 hidden while the list is empty, and any band another plugin draws there stays below it.
 
 **The "Noticed issues" pane** opens by itself when the list has something on it, and
