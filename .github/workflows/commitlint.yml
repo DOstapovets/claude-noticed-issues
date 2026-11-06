@@ -18,5 +18,5 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      # No config in the repository: the action falls back to @commitlint/config-conventional.
+      # Reads commitlint.config.mjs, the action's default configFile.
       - uses: wagoid/commitlint-github-action@v6
