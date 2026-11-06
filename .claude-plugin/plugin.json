@@ -1,9 +1,29 @@
 {
   "name": "noticed-issues",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Per-project list of problems Claude noticed outside the current task, grouped by priority, in a pane opened from a ⚑ count above the prompt; start a background session or file a GitHub issue per entry and follow its status",
-  "author": { "name": "Dmytro Ostapovets" },
+  "author": {
+    "name": "Dmytro Ostapovets"
+  },
   "license": "MIT",
-  "keywords": ["issues", "github", "pane", "background-sessions"],
+  "keywords": [
+    "issues",
+    "github",
+    "pane",
+    "background-sessions"
+  ],
+  "userConfig": {
+    "github": {
+      "type": "string",
+      "title": "GitHub",
+      "description": "auto: GitHub buttons and statuses only where origin is a github.com repository; on: always (GitHub Enterprise); off: never",
+      "default": "auto",
+      "options": [
+        "auto",
+        "on",
+        "off"
+      ]
+    }
+  },
   "types": "./types/index.d.ts"
 }

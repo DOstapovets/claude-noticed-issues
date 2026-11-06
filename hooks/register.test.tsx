@@ -44,6 +44,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     argv: [] as (readonly string[])[],
     // The repository root `session.repo` answers, and each directory's git common dir.
     repo: null as string | null,
+    remote: null as string | null,
     git: {} as Record<string, string>,
     // What `gh issue view` answers, and the URLs it was asked about.
     // A function answers per URL.
@@ -68,7 +69,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.repo', () => ({
-    value: seen.repo === null ? null : { root: seen.repo, remote: null, internal: false, name: null },
+    value: seen.repo === null ? null : { root: seen.repo, remote: seen.remote, internal: false, name: null },
   }))
   on('process.run', (_, e) => {
     if (e.argv[0] === 'git') {
@@ -217,7 +218,9 @@ test('a background session is started for an issue', async ($, on) => {
   await after.unmount()
 })
 
-test('a GitHub issue is created for an issue', async ($, on) => {
+const GITHUB_ON = { options: { github: 'on' } }
+
+test('a GitHub issue is created for an issue', GITHUB_ON, async ($, on) => {
   const seen = engine(on)
   await $.session.start(start('/proj/a'))
   await $.tool.call({ tool: NOTE, title: 'Stale playwright cache', detail: 'cache is 2 GB', file: '~/.cache/ms-playwright' })
@@ -240,7 +243,7 @@ test('a GitHub issue is created for an issue', async ($, on) => {
   expect(seen.argv.at(-1)?.[2]).toContain('GitHub issue: https://github.com/o/r/issues/42')
 })
 
-test('the GitHub issue\'s board column is shown, and a closed one is removed', async ($, on) => {
+test('the GitHub issue\'s board column is shown, and a closed one is removed', GITHUB_ON, async ($, on) => {
   const seen = engine(on, {
     'issues:/proj/a': {
       nextId: 4,
@@ -282,6 +285,70 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', a
   const later = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await later.find({ type: 'Text', text: '#2 Not linked' })).toBeDefined()
   await later.unmount()
+})
+
+test('auto offers GitHub only where origin is on github.com', async ($, on) => {
+  const seen = engine(on, {
+    'issues:/repo': {
+      nextId: 3,
+      items: [
+        { id: 1, title: 'Linked', createdAt: 1, githubUrl: 'https://github.com/o/r/issues/7' },
+        { id: 2, title: 'Not linked', createdAt: 1 },
+      ],
+    },
+  })
+  seen.repo = '/repo'
+
+  const offered = async () => {
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    const button = await ui.find({ key: 'github-2' })
+    // A link made earlier stays whatever the setting.
+    expect(await ui.find({ type: 'Link', text: /GitHub #7/ })).toBeDefined()
+    await ui.unmount()
+    return button !== undefined
+  }
+
+  for (const remote of ['git@github.com:o/r.git', 'https://github.com/o/r', 'ssh://git@ssh.github.com:443/o/r.git']) {
+    seen.remote = remote
+    await $.session.start(start('/repo'))
+    expect(await offered()).toBe(true)
+  }
+
+  seen.viewed = []
+  for (const remote of ['git@gitlab.com:o/r.git', 'https://github.com.evil.example/o/r', null]) {
+    seen.remote = remote
+    await $.session.start(start('/repo'))
+    await seen.clock.settle()
+    expect(await offered()).toBe(false)
+  }
+  // Nor is a status read where GitHub is not on.
+  expect(seen.viewed).toEqual([])
+})
+
+test('github: on offers it on any remote', GITHUB_ON, async ($, on) => {
+  const seen = engine(on)
+  seen.repo = '/repo'
+  seen.remote = 'git@github.example.com:o/r.git'
+  await $.session.start(start('/repo'))
+  await $.tool.call({ tool: NOTE, title: 'Enterprise' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ key: 'github-1' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('github: off hides it even on github.com', { options: { github: 'off' } }, async ($, on) => {
+  const seen = engine(on, {
+    'issues:/repo': { nextId: 2, items: [{ id: 1, title: 'Linked', createdAt: 1, githubUrl: 'https://github.com/o/r/issues/7' }] },
+  })
+  seen.repo = '/repo'
+  seen.remote = 'git@github.com:o/r.git'
+  await $.session.start(start('/repo'))
+  await seen.clock.advance(5 * 60_000)
+  expect(seen.viewed).toEqual([])
+  await $.tool.call({ tool: NOTE, title: 'Not linked' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ key: 'github-2' })).toBeUndefined()
+  await ui.unmount()
 })
 
 test('issues are grouped by priority, highest first, and moved between groups', async ($, on) => {

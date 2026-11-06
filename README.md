@@ -56,7 +56,7 @@ as a card with its number, title, file and detail, and these controls:
 - **↗ GitHub issue** files it with `gh issue create` in the repository of the session's
   directory: the title becomes the issue title, `detail` and `file` its body. The card
   then links it as `↗ GitHub #42 · open · 📋 To do`, with the column of the project
-  board it is on, if any.
+  board it is on, if any. Shown only where GitHub is on: see [Settings](#settings).
 - **✕ Delete** removes the entry.
 - **▲ / ▼** move it one priority up or down.
 
@@ -80,6 +80,20 @@ final: if the issue is reopened, the entry does not come back.
 Requires the [GitHub CLI](https://cli.github.com), signed in with `gh auth login`,
 and for the project board column the `read:project` scope
 (`gh auth refresh -s read:project`).
+
+## Settings
+
+One option, `github`, asked for at install and listed in the plugin's config menu
+(stored under `pluginConfigs` in settings):
+
+| Value | GitHub button and statuses |
+| --- | --- |
+| `auto` (default) | Only where the repository's `origin` remote is on `github.com`, over ssh or https. Not in a repository with no remote, on GitLab, Bitbucket and the like, or outside a repository. |
+| `on` | Always. Use it for GitHub Enterprise on a domain of its own. |
+| `off` | Never. |
+
+Where GitHub is off, no `gh` call is made. Links to issues filed earlier stay on
+their cards.
 
 ## Where the list is kept
 

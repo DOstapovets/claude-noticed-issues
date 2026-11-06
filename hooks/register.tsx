@@ -21,6 +21,8 @@ const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
 let cwd = ''
 let storeKey = ''
 let nextId = 1
+// Whether this session offers GitHub issues and reads their status.
+let github = false
 
 const count = (n: number) => (n === 1 ? '1 issue' : `${n} issues`)
 
@@ -37,6 +39,13 @@ const load = async ($: Api) => {
   await update($, issues, () => list)
 
   return list
+}
+
+// `auto` asks the `origin` remote: ssh (`git@github.com:o/r.git`, `ssh://…`) or https.
+const onGithub = (remote: string | null | undefined) => {
+  const host = remote?.match(/^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?([^:/]+)/i)?.[1]
+
+  return host !== undefined && /(^|\.)github\.com$/i.test(host)
 }
 
 const commonDir = async ($: Api, dir: string) => {
@@ -142,7 +151,7 @@ const githubBody = (issue: Issue) =>
 const createGithubIssue = async ($: Api, id: number) => {
   const issue = (await read($, issues)).find(i => i.id === id)
 
-  if (!issue || issue.githubUrl || filing.has(id)) {
+  if (!github || !issue || issue.githubUrl || filing.has(id)) {
     return
   }
 
@@ -204,7 +213,7 @@ const githubStatus = async ($: Api, url: string): Promise<GithubStatus | undefin
 const refreshGithub = async ($: Api) => {
   const linked = (await read($, issues)).filter(i => i.githubUrl)
 
-  if (refreshing || linked.length === 0) {
+  if (!github || refreshing || linked.length === 0) {
     return
   }
 
@@ -262,7 +271,7 @@ const GITHUB_ISSUE = /https:\/\/\S+\/issues\/\d+/
 
 const SESSION_ID = /\b[0-9a-f]{8}(?:-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\b/
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const ran = await next(e)
     cwd = ran.cwd
@@ -270,6 +279,7 @@ export const register: Register = on => {
     // tree's root names it. Outside a repository the directory does.
     const repo = await $.session.repo()
     storeKey = `issues:${repo?.root ?? cwd}`
+    github = options.github === 'on' || (options.github !== 'off' && onGithub(repo?.remote))
     nextId = 1
 
     if (repo) {
@@ -467,11 +477,13 @@ export const register: Register = on => {
               )}
             </Box>
           ) : (
-            <Button
-              key={`github-${issue.id}`}
-              label="↗ GitHub issue"
-              onPress={() => createGithubIssue($, issue.id)}
-            />
+            github && (
+              <Button
+                key={`github-${issue.id}`}
+                label="↗ GitHub issue"
+                onPress={() => createGithubIssue($, issue.id)}
+              />
+            )
           )}
           <Button key={`delete-${issue.id}`} label="✕ Delete" dimColor onPress={() => remove($, issue.id)} />
           {rank(issue) > 0 && (
