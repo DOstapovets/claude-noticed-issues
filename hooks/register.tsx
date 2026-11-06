@@ -663,7 +663,7 @@ export const register: Register = (on, options) => {
           <Button key="feedback" plain dimColor label="✎ Feedback" onPress={() => startFeedback($)} />
         </Box>
         {mine.length > 0 && (
-          <Box gap={1} marginBottom={1}>
+          <Box gap={1} marginTop={1} marginBottom={1}>
             {tabButton('session', `This session ${mine.length}`)}
             {tabButton('all', `All ${list.length}`)}
           </Box>
