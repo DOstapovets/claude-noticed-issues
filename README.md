@@ -79,6 +79,14 @@ three lines. These are its controls:
 - **▲ / ▼**, at the card's right edge while the pointer is over the card, move it one
   priority up or down; each is drawn in the color of the group it moves the issue to.
 
+**Outside the terminal** (VS Code, the desktop app, the mobile app) each group takes
+the height its cards need and the pane scrolls as a whole, with a little more room
+inside each card. Where nothing is drawn on hover (VS Code, the mobile app), ▲ / ▼
+always show. VS Code draws no colors inside a button, so there a group's heading is
+a colored dot beside its name, which is the part you press; the arrows and the tab
+not shown are dim; the cards stand in under the heading; and the pane's own heading
+is left out, as VS Code titles the pane, with **✎ Feedback** on the tabs' row.
+
 **Commands:**
 
 - `/issues` opens the pane (or prints the list, highest priority first, when no pane

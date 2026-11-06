@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-import type { Engine } from 'claude-code/testing'
+import type { Engine, FoundElement } from 'claude-code/testing'
 
 const NOTE = 'mcp__noticed-issues__note_issue'
 const RESOLVE = 'mcp__noticed-issues__resolve_issue'
@@ -139,6 +139,10 @@ const lines = async (ui: { findAll: (query: object) => Promise<{ type: string; k
         ? [el.text.replace(/^(#\d+) ?/, '$1 ')]
         : [],
   )
+
+// A drawn element's children that are elements, not strings.
+const kids = (el: FoundElement | undefined) =>
+  (el?.children ?? []).filter((c): c is FoundElement => typeof c === 'object' && c !== null)
 
 const start = (cwd: string) => ({ cwd, surface: 'terminal' as const, isInteractive: true })
 
@@ -543,6 +547,97 @@ test('each open group scrolls its cards under a heading that stays put', async (
   // The scroll keys, with no pointer, move the first open group, never above its first card.
   for (let i = 0; i < 6; i += 1) await scroll(-1)
   expect((await high())[0]).toBe('#8 Leak 8')
+  await ui.unmount()
+})
+
+test('off the terminal the groups flow at their own height and the pane scrolls whole', async ($, on) => {
+  engine(on)
+  // Beneath the plugin, the surface's own scroll: whether the pane's ask reached it.
+  let passed = 0
+  on('ui.scroll', () => {
+    passed += 1
+    return {}
+  })
+  await $.session.start(start('/proj/a'))
+  for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) await $.tool.call({ tool: NOTE, title: `Leak ${n}`, priority: 'high' })
+  for (const n of [1, 2]) await $.tool.call({ tool: NOTE, title: `Doc ${n}` })
+
+  const scroll = () =>
+    $.ui.scroll({
+      component: 'Pane',
+      requestId: 'noticed-issues',
+      offset: 0,
+      by: 1,
+      bodyRows: 40,
+      contentRows: 80,
+      origin: { kind: 'person' },
+      pointer: { column: 10, row: 10 },
+    } as never)
+
+  for (const surface of ['vscode', 'desktop', 'mobile'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    for (const priority of ['high', 'medium']) {
+      const group = await ui.find({ key: `priority-${priority}` })
+      expect(group?.props.height).toBeUndefined()
+      expect(group?.props.overflow).toBeUndefined()
+    }
+    // Every card is drawn, none scrolled out of its group.
+    expect((await lines(ui)).filter(line => line.startsWith('#'))).toHaveLength(10)
+    // VS Code draws no hover and a phone has no pointer: the priority arrows always show there.
+    // More room inside a card than the terminal's whole rows allow.
+    const card = await ui.find({ key: 'issue-1' })
+    expect(card?.props.paddingY).toBeGreaterThan(0)
+    expect(card?.props.rowGap).toBeGreaterThan(0)
+    const hidden = (await ui.findAll({ type: 'Box' })).filter(box => box.props.display === 'none')
+    expect(hidden).toHaveLength(surface === 'desktop' ? 10 : 0)
+    // In VS Code, which draws no color inside a Button, the group's name is a dim
+    // Button and its color a dot beside it.
+    const heading = await ui.find({ key: 'group-high' })
+    expect(heading?.text).toBe('▾ High 8')
+    expect(heading?.props.dimColor).toBe(surface === 'vscode' ? true : undefined)
+    const dots = (await ui.findAll({ type: 'Text', text: /^●/ })).map(dot => dot.props.color)
+    expect(dots).toEqual(surface === 'vscode' ? ['red', 'yellow'] : [])
+    // VS Code draws the pane's title itself: there is no heading of the plugin's, Feedback still is.
+    expect(await ui.find({ type: 'Text', text: /^Noticed issues/ })).toEqual(surface === 'vscode' ? undefined : expect.anything())
+    expect(await ui.find({ key: 'feedback' })).toBeDefined()
+    // In VS Code the corner's age, ✕ and, once asked, Delete? ✓ ↩ are a character apart.
+    const corner = async () => kids(kids(await ui.find({ key: 'issue-8' }))[0]).find(c => 'marginLeft' in c.props)
+    expect((await corner())?.props.columnGap).toBe(surface === 'vscode' ? 1 : undefined)
+    await ui.press({ key: 'delete-8' })
+    expect((await corner())?.props.columnGap).toBe(surface === 'vscode' ? 1 : undefined)
+    await ui.press({ key: 'cancel-delete-8' })
+    // In VS Code, which fills every Button alike, the tab not shown is dim.
+    if (surface === 'vscode') {
+      expect((await ui.find({ key: 'tab-all' }))?.props.dimColor).toBeUndefined()
+      expect((await ui.find({ key: 'tab-session' }))?.props.dimColor).toBe(true)
+    }
+    // A long title wraps in its own column, the age and ✕ kept in the corner: VS Code wraps rows by default.
+    expect(kids(await ui.find({ key: 'issue-8' }))[0]?.props.flexWrap).toBe(surface === 'vscode' ? 'nowrap' : undefined)
+    // VS Code's spacing: the cards stand in under the heading, with room above and between them.
+    const first = await ui.find({ key: 'issue-8' })
+    expect(first?.props.marginLeft).toBe(surface === 'vscode' ? 2 : undefined)
+    expect(first?.props.marginBottom).toBe(surface === 'vscode' ? 0.75 : 1)
+    expect((await ui.find({ key: 'priority-medium' }))?.props.marginTop).toBe(surface === 'vscode' ? 0.5 : 1)
+    await ui.press({ key: 'group-high' })
+    expect(await ui.find({ key: 'issue-1' })).toBeUndefined()
+    await ui.press({ key: 'group-high' })
+    // In VS Code, which drops their colors, the arrows are dim.
+    expect((await ui.find({ key: 'lower-1' }))?.props.dimColor).toBe(surface === 'vscode' ? true : undefined)
+    expect(await ui.find({ type: 'Text', text: /above/ })).toBeUndefined()
+    const before = passed
+    await scroll()
+    expect(passed).toBe(before + 1)
+    await ui.unmount()
+  }
+
+  // Back on the terminal the groups keep their rows and scroll inside them.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(24)
+  expect((await ui.find({ key: 'issue-1' }))?.props.paddingY).toBeUndefined()
+  const before = passed
+  await scroll()
+  expect(passed).toBe(before)
+  expect(await ui.find({ type: 'Text', text: / ↑ 1 above/ })).toBeDefined()
   await ui.unmount()
 })
 

@@ -272,6 +272,24 @@ const PRIORITIES = [
   { value: 'low', label: 'Low', color: 'remember' },
 ] as const
 
+// The groups' colors in VS Code: its webview draws `warning` in the menus' grey and
+// knows no `remember`, so the theme's terminal colors stand in. Any `#rrggbb` or
+// `rgb(…)` is drawn too.
+const VSCODE_COLORS: Record<Priority, string> = { high: 'red', medium: 'yellow', low: 'blue' }
+
+// VS Code's spacing, in lines down and characters across, a fraction allowed: the
+// terminal's whole rows are counted for its layout and stay as they are.
+const VSCODE_SPACE = {
+  // Between one group and the next, on top of the last card's own margin.
+  betweenGroups: 0.5,
+  // Between a group's heading and its first card.
+  belowHeading: 0.5,
+  // Cards stand in from the heading's dot, under its name.
+  cardIndent: 2,
+  // Between one card and the next.
+  betweenCards: 0.75,
+}
+
 // An issue noted before priorities existed, or without one, is medium.
 const rank = (issue: Issue) => PRIORITIES.findIndex(p => p.value === (issue.priority ?? 'medium'))
 
@@ -436,11 +454,19 @@ const age = (at: number, now: number) => {
   return `${two(date.getDate())}.${two(date.getMonth() + 1)}${year} ${two(date.getHours())}:${two(date.getMinutes())}`
 }
 
+// Off the terminal, a card's padding above and below and the room between its
+// lines, in lines; VS Code draws a fraction of one.
+const CARD_PADDING_Y = 0.5
+const CARD_ROW_GAP = 0.3
+
 // Inside a card: its border and padding take two columns a side.
 const cardColumnsOf = (bodyColumns: number) => Math.max(20, bodyColumns - 4)
 
 // The pane's width as last drawn: `ui.scroll` does not carry it.
 let paneColumns = 60
+// Whether the pane was last drawn on the terminal, the one surface whose rows the
+// layout can count: `ui.scroll` does not say where it comes from either.
+let paneOnTerminal = true
 
 // Where reports about the plugin itself go.
 const PLUGIN_REPO = 'DOstapovets/claude-noticed-issues'
@@ -656,7 +682,12 @@ export const register: Register = (on, options) => {
 
   // The wheel, or the scroll keys, move the open group under the pointer (the
   // first open one for the keys) a card at a time; the pane itself stays put.
-  on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e) => {
+  // Elsewhere (VS Code, desktop, mobile) the groups flow and the pane scrolls whole.
+  on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
+    if (!paneOnTerminal) {
+      return next(e)
+    }
+
     const { mine, shown } = await view($)
     const open = arrange(
       shown,
@@ -683,14 +714,30 @@ export const register: Register = (on, options) => {
     const list = await read($, issues)
 
     paneColumns = e.props.bodyColumns
+    // Only the terminal draws a row as one cell high, so only there are the rows
+    // worked out: a graphical surface draws borders, buttons and wrapped text at
+    // heights of its own, and a fixed height leaves gaps or cuts cards off.
+    const fitsRows = e.surface === 'terminal'
+    paneOnTerminal = fitsRows
+    // VS Code's webview draws no `hover` (a Box drawn `display: "none"` stays hidden)
+    // and a phone has no pointer, so there what a hover reveals is always shown.
+    const hovers = e.surface !== 'vscode' && e.surface !== 'mobile'
+    // VS Code draws a Button's children as plain text in its filled look, so the arrows
+    // lose their groups' colors: there they are dim, below the card's own actions.
+    const colorlessButtons = e.surface === 'vscode'
+    const space = e.surface === 'vscode' ? VSCODE_SPACE : undefined
+    const quietArrows = colorlessButtons ? { dimColor: true } : {}
     const cardColumns = cardColumnsOf(e.props.bodyColumns)
     const confirming = await read($, deleting)
     const now = await read($, minute)
 
     // The card's top right corner: when it was noted, and a red ✕, which asks once before it deletes.
+    // VS Code draws its Buttons as framed chips, which a space does not part from the
+    // text beside them: there the corner's parts are a character apart.
+    const cornerRow = space ? { columnGap: 1, alignItems: 'center' as const } : {}
     const corner = (issue: Issue) =>
       confirming === issue.id ? (
-        <Box flexShrink={0} marginLeft={1}>
+        <Box flexShrink={0} marginLeft={1} {...cornerRow}>
           <Text color="error">Delete?</Text>
           <Button key={`confirm-delete-${issue.id}`} plain onPress={() => confirmRemove($, issue.id)}>
             <Text color="error" bold>
@@ -700,8 +747,11 @@ export const register: Register = (on, options) => {
           <Button key={`cancel-delete-${issue.id}`} plain dimColor label=" ↩ " onPress={() => update($, deleting, () => null)} />
         </Box>
       ) : (
-        <Box flexShrink={0} marginLeft={1}>
-          <Text dimColor>{age(issue.createdAt, now)} </Text>
+        <Box flexShrink={0} marginLeft={1} {...cornerRow}>
+          <Text dimColor>
+            {age(issue.createdAt, now)}
+            {space ? '' : ' '}
+          </Text>
           <Button key={`delete-${issue.id}`} plain onPress={() => update($, deleting, () => issue.id)}>
             <Text color="error" bold>
               {' ✕ '}
@@ -714,14 +764,19 @@ export const register: Register = (on, options) => {
       <Box
         key={`issue-${issue.id}`}
         flexDirection="column"
-        marginBottom={1}
+        marginBottom={space?.betweenCards ?? 1}
+        {...(space ? { marginLeft: space.cardIndent } : {})}
         paddingX={1}
+        // Air inside the card where a surface draws part of a line: the terminal's rows are whole and counted.
+        {...(fitsRows ? {} : { paddingY: CARD_PADDING_Y, rowGap: CARD_ROW_GAP })}
         flexShrink={0}
         borderStyle="round"
         borderDimColor
         hover={{ borderColor: 'claude', borderDimColor: false }}
       >
-        <Box justifyContent="space-between">
+        {/* VS Code wraps a row by default: kept on one line there, a long title wraps
+            inside its own column and the age and ✕ stay in the top right corner. */}
+        <Box justifyContent="space-between" {...(space ? { flexWrap: 'nowrap' as const, alignItems: 'flex-start' as const } : {})}>
           {issue.githubUrl ? (
             // A linked issue: number, link and status on a line of their own that
             // never wraps, the title below at the card's full width.
@@ -785,17 +840,18 @@ export const register: Register = (on, options) => {
           </Box>
           {/* At the right edge, shown while the pointer is over the card: each arrow in the
               color of the group it moves the issue to, padded with a space a side so it is
-              easier to hit. Hidden, it keeps no room, and shown it takes none from the row. */}
-          <Box gap={2} display="none" hover={{ display: 'flex' }}>
+              easier to hit. Hidden, it keeps no room, and shown it takes none from the row.
+              Where no hover is drawn, always shown. */}
+          <Box gap={2} {...(hovers ? { display: 'none' as const, hover: { display: 'flex' as const } } : {})}>
             {rank(issue) > 0 && (
-              <Button key={`raise-${issue.id}`} plain onPress={() => shiftPriority($, issue.id, -1)}>
+              <Button key={`raise-${issue.id}`} plain {...quietArrows} onPress={() => shiftPriority($, issue.id, -1)}>
                 <Text color={PRIORITIES[rank(issue) - 1]!.color} bold>
                   {' ▲ '}
                 </Text>
               </Button>
             )}
             {rank(issue) < PRIORITIES.length - 1 && (
-              <Button key={`lower-${issue.id}`} plain onPress={() => shiftPriority($, issue.id, 1)}>
+              <Button key={`lower-${issue.id}`} plain {...quietArrows} onPress={() => shiftPriority($, issue.id, 1)}>
                 <Text color={PRIORITIES[rank(issue) + 1]!.color} bold>
                   {' ▼ '}
                 </Text>
@@ -810,16 +866,44 @@ export const register: Register = (on, options) => {
     const { mine, current, shown } = await view($)
 
     // The current tab is filled with the accent color, the other drawn in it on the pane's background.
-    const tabButton = (value: Tab, label: string) => (
-      <Button key={`tab-${value}`} plain onPress={() => update($, tab, () => value)}>
-        {current === value ? (
-          <Text backgroundColor="claude" color="inverseText" bold>
-            {` ${label} `}
-          </Text>
-        ) : (
-          <Text color="claude">{` ${label} `}</Text>
-        )}
-      </Button>
+    // VS Code fills every Button alike: there the current tab keeps the fill and the other is dim.
+    const tabButton = (value: Tab, label: string) =>
+      colorlessButtons ? (
+        <Button
+          key={`tab-${value}`}
+          plain
+          label={label}
+          {...(current === value ? {} : { dimColor: true })}
+          onPress={() => update($, tab, () => value)}
+        />
+      ) : (
+        <Button key={`tab-${value}`} plain onPress={() => update($, tab, () => value)}>
+          {current === value ? (
+            <Text backgroundColor="claude" color="inverseText" bold>
+              {` ${label} `}
+            </Text>
+          ) : (
+            <Text color="claude">{` ${label} `}</Text>
+          )}
+        </Button>
+      )
+
+    // The pane's own title, which VS Code already draws above it.
+    const titled = e.surface === 'vscode'
+    const feedback = (
+      <Button
+        key="feedback"
+        plain
+        dimColor
+        label="✎ Feedback"
+        onPress={() => startFeedback($)}
+      />
+    )
+    const tabs = (
+      <Box gap={1}>
+        {tabButton('session', `This session ${mine.length}`)}
+        {tabButton('all', `All ${list.length}`)}
+      </Box>
     )
 
     const bodyRows = e.props.scroll.bodyRows
@@ -827,23 +911,41 @@ export const register: Register = (on, options) => {
     const at = await read($, scrolled)
 
     const group = ({ priority, items, isOpen, rows, lastFirst }: (typeof groups)[number], index: number) => {
-      const first = firstCard(at[priority.value], lastFirst)
+      const first = fitsRows ? firstCard(at[priority.value], lastFirst) : 0
 
       return (
         <Box
           key={`priority-${priority.value}`}
           flexDirection="column"
-          height={rows}
-          marginTop={index > 0 ? 1 : 0}
+          {...(fitsRows ? { height: rows, overflow: 'hidden' as const } : {})}
+          marginTop={index > 0 ? (space?.betweenGroups ?? 1) : 0}
           flexShrink={0}
-          overflow="hidden"
         >
-          <Box flexShrink={0}>
-            <Button key={`group-${priority.value}`} plain onPress={() => toggleGroup($, priority.value)}>
-              <Text color={priority.color} bold>
-                {isOpen ? '▾' : '▸'} {priority.label} {items.length}
-              </Text>
-            </Button>
+          <Box
+            flexDirection="row"
+            flexShrink={0}
+            {...(colorlessButtons ? { alignItems: 'center' as const } : {})}
+            {...(space && isOpen ? { marginBottom: space.belowHeading } : {})}
+          >
+            {/* VS Code draws no color inside a Button, and Text cannot be pressed: the
+                group's color is a dot beside its name, which is a dim, unfilled Button.
+                Both sit directly in this row, no fragment between. */}
+            {colorlessButtons && <Text color={VSCODE_COLORS[priority.value]}>● </Text>}
+            {colorlessButtons ? (
+              <Button
+                key={`group-${priority.value}`}
+                plain
+                dimColor
+                label={`${isOpen ? '▾' : '▸'} ${priority.label} ${items.length}`}
+                onPress={() => toggleGroup($, priority.value)}
+              />
+            ) : (
+              <Button key={`group-${priority.value}`} plain onPress={() => toggleGroup($, priority.value)}>
+                <Text color={priority.color} bold>
+                  {isOpen ? '▾' : '▸'} {priority.label} {items.length}
+                </Text>
+              </Button>
+            )}
             {isOpen && first > 0 && <Text dimColor> ↑ {first} above</Text>}
           </Box>
           {isOpen && items.slice(first).map(card)}
@@ -852,16 +954,21 @@ export const register: Register = (on, options) => {
     }
 
     return (
-      <Box flexDirection="column" height={bodyRows} overflow="hidden">
-        <Box justifyContent="space-between" marginBottom={1}>
-          <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
-          <Button key="feedback" plain dimColor label="✎ Feedback" onPress={() => startFeedback($)} />
-        </Box>
-        {mine.length > 0 && (
-          <Box gap={1} marginBottom={1}>
-            {tabButton('session', `This session ${mine.length}`)}
-            {tabButton('all', `All ${list.length}`)}
+      <Box flexDirection="column" {...(fitsRows ? { height: bodyRows, overflow: 'hidden' as const } : {})}>
+        {titled ? (
+          // VS Code heads the pane with its title already: there Feedback joins the tabs' row.
+          <Box justifyContent="space-between" marginBottom={1}>
+            {mine.length > 0 ? tabs : <Box />}
+            {feedback}
           </Box>
+        ) : (
+          <>
+            <Box justifyContent="space-between" marginBottom={1}>
+              <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
+              {feedback}
+            </Box>
+            {mine.length > 0 && <Box marginBottom={1}>{tabs}</Box>}
+          </>
         )}
         {list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
         {/* A folded group keeps its place in the priority order. */}
