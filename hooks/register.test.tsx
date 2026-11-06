@@ -878,11 +878,18 @@ test('a card says when it was noted, newest first in its group', async ($, on) =
   // Told again as the minutes pass.
   await seen.clock.advance(5 * 60_000)
   expect((await ages()).newer).toBe('5m ago')
-  // After a day, the date and time it was noted.
-  for (let hour = 0; hour < 24; hour += 1) await seen.clock.advance(60 * 60_000)
-  const noted = new Date(1_000)
-  const two = (n: number) => String(n).padStart(2, '0')
-  expect((await ages()).older).toBe(`${two(noted.getDate())}.${two(noted.getMonth() + 1)} ${two(noted.getHours())}:${two(noted.getMinutes())}`)
+})
+
+test('after a day a card says the date and time it was noted', async ($, on) => {
+  const noted = new Date(2026, 5, 14, 9, 7).getTime()
+  const seen = engine(on, { 'issues:/proj/a': { nextId: 2, items: [{ id: 1, title: 'Day old', createdAt: noted }] } })
+  // Moved before the session starts its timers: a day of ticks on the way would take seconds.
+  await seen.clock.set(noted + 25 * 60 * 60_000)
+  await $.session.start(start('/proj/a'))
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^\s*14\.06 09:07\s*$/ })).toBeDefined()
+  await ui.unmount()
 })
 
 test('the red ✕ in a card\'s corner asks once before it deletes', async ($, on) => {
