@@ -453,6 +453,33 @@ test('a long detail is cut to three card lines, the file kept on a line of its o
   await ui.unmount()
 })
 
+test('Feedback starts a session that interviews the user and posts only once they confirm', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+
+  // In the pane's heading even with nothing on the list.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'feedback' })
+  await ui.unmount()
+  expect(seen.argv).toHaveLength(1)
+  expect(seen.argv[0]?.slice(0, 2)).toEqual(['claude', '--bg'])
+  const text = seen.argv[0]?.[2] ?? ''
+  expect(text).toContain('DOstapovets/claude-noticed-issues')
+  expect(text).toContain('AskUserQuestion')
+  expect(text).toContain('post nothing until I confirm')
+  expect(text).toContain('createDiscussion')
+  expect(seen.toasts.at(-1)).toContain('claude attach 4b7cb777')
+
+  const ran = await $.command.run({
+    command: 'issues',
+    args: 'feedback',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: true, columns: 160 },
+  })
+  expect(ran.text).toContain('Feedback session started')
+  expect(seen.argv).toHaveLength(2)
+})
+
 test('both tools stay in the prompt rather than behind ToolSearch', async ($, on) => {
   engine(on)
   // The engine defers a plugin's MCP-style tools by default.

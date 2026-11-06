@@ -120,6 +120,19 @@ const prompt = (issue: Issue) =>
     .filter(Boolean)
     .join('\n')
 
+// Starts `claude --bg` with the prompt; its id, or undefined once a toast said why not.
+const background = async ($: Api, text: string, what: string) => {
+  const ran = await $.process.run(['claude', '--bg', text], { cwd }).catch(() => undefined)
+  // `claude --bg` prints the id that `claude attach` takes.
+  const sessionId = ran?.exitCode === 0 ? ran.stdout.match(SESSION_ID)?.[0] : undefined
+
+  if (!sessionId) {
+    await $.ui.toast(`Could not start a session for ${what}: ${ran?.stderr.trim() || 'claude --bg failed'}`)
+  }
+
+  return sessionId
+}
+
 const startSession = async ($: Api, id: number) => {
   const issue = (await read($, issues)).find(i => i.id === id)
 
@@ -127,12 +140,9 @@ const startSession = async ($: Api, id: number) => {
     return
   }
 
-  const ran = await $.process.run(['claude', '--bg', prompt(issue)], { cwd }).catch(() => undefined)
-  // `claude --bg` prints the id that `claude attach` takes.
-  const sessionId = ran?.exitCode === 0 ? ran.stdout.match(SESSION_ID)?.[0] : undefined
+  const sessionId = await background($, prompt(issue), `#${id}`)
 
   if (!sessionId) {
-    await $.ui.toast(`Could not start a session for #${id}: ${ran?.stderr.trim() || 'claude --bg failed'}`)
     return
   }
 
@@ -278,6 +288,26 @@ const DETAIL_LINES = 3
 
 const clip = (value: string, max: number) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value)
 
+// Where reports about the plugin itself go.
+const PLUGIN_REPO = 'DOstapovets/claude-noticed-issues'
+
+const FEEDBACK_PROMPT = [
+  `Help me send feedback about the noticed-issues Claude Code plugin to its GitHub repository, ${PLUGIN_REPO}.`,
+  '1. Interview me with AskUserQuestion, a few questions at a time. First: is it a bug, a feature request, or a question or idea to talk through? Then what that kind needs: for a bug, what happened, the steps and what I expected; for a feature, the problem and what I would like; for a question or idea, the question itself.',
+  '2. Collect the environment yourself rather than asking: `claude --version`, the noticed-issues version from `claude plugin list`, the OS, and whether this terminal uses the fullscreen layout. Leave out tokens, internal hostnames, private repository names and the contents of my projects.',
+  `3. Look for an existing issue or discussion on the same thing (\`gh issue list --repo ${PLUGIN_REPO} --state all --search ...\`, and discussions through \`gh api graphql\`). If there is one, show it and offer to add a comment there instead.`,
+  '4. Draft the title and body. A bug: sections What happened, Steps to reproduce, Plugin version, Claude Code version, Where you run Claude Code, Logs or screenshots. A feature: The problem, What you would like, Alternatives you considered. Show me the draft and post nothing until I confirm it.',
+  `5. Once I confirm: a bug or a feature request becomes an issue, \`gh issue create --repo ${PLUGIN_REPO} --title ... --body-file ...\`; a question or an idea becomes a discussion through \`gh api graphql\` and its createDiscussion mutation, in the Q&A category for a question and Ideas for an idea (look up the repository id and the category ids first). Give me the link.`,
+].join('\n')
+
+const startFeedback = async ($: Api) => {
+  const sessionId = await background($, FEEDBACK_PROMPT, 'feedback')
+
+  if (sessionId) {
+    await $.ui.toast(`✎ Feedback session ${sessionId} is waiting for your answers · claude attach ${sessionId}`)
+  }
+}
+
 const remove = async ($: Api, id: number) => {
   await save($, (await read($, issues)).filter(i => i.id !== id))
 }
@@ -338,8 +368,9 @@ export const register: Register = (on, options) => {
     })
     await $.command.register({
       name: 'issues',
-      description: "Show this project's noticed issues; `/issues clear` empties the list",
-      argumentHint: '[clear]',
+      description:
+        "Show this project's noticed issues; `/issues clear` empties the list, `/issues feedback` reports a bug or an idea about this plugin",
+      argumentHint: '[clear|feedback]',
     })
 
     $.clock.every(RELOAD_MS, () => void load($))
@@ -402,6 +433,11 @@ export const register: Register = (on, options) => {
   })
 
   on('command.run', { command: 'issues' }, async ($, e) => {
+    if (e.args.trim() === 'feedback') {
+      await startFeedback($)
+      return { text: 'Feedback session started in the background: attach to it to answer its questions.' }
+    }
+
     if (e.args.trim() === 'clear') {
       await save($, [])
       return { text: 'Noticed issues cleared for this project.' }
@@ -570,7 +606,10 @@ export const register: Register = (on, options) => {
 
     return (
       <Box flexDirection="column" minHeight={e.props.scroll.bodyRows}>
-        <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
+        <Box justifyContent="space-between">
+          <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
+          <Button key="feedback" plain dimColor label="✎ Feedback" onPress={() => startFeedback($)} />
+        </Box>
         {list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
         {open.map(group)}
         {/* Folded groups sit at the bottom of the pane; with every group folded, the space above them stays empty. */}

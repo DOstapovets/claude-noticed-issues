@@ -72,6 +72,15 @@ three lines. These are its controls:
 - `/issues` opens the pane (or prints the list, highest priority first, when no pane
   can be placed right now) and refreshes GitHub statuses.
 - `/issues clear` empties the project's list.
+- `/issues feedback` does what the pane's **✎ Feedback** button does, below.
+
+**✎ Feedback**, in the pane's heading, is for reporting something about this plugin
+itself. It starts a background session (`claude attach <id>` joins it, as the toast
+says) that asks you what it is, a bug, a feature request, or a question or idea, and
+what that needs. It collects the Claude Code and plugin versions by itself, looks for
+an existing issue or discussion on the same thing, and shows you a draft. Only once
+you confirm does it post: a bug or feature request as an issue in this repository, a
+question or idea as a discussion, and it gives you the link.
 
 ## GitHub status
 
@@ -128,7 +137,8 @@ claude --plugin-dir .         # a session with this checkout loaded
 
 ## Feedback
 
-Found a bug or want something changed? [Open an issue](https://github.com/DOstapovets/claude-noticed-issues/issues/new/choose)
+Found a bug or want something changed? Press **✎ Feedback** in the pane, or
+[open an issue](https://github.com/DOstapovets/claude-noticed-issues/issues/new/choose)
 with the **Bug report** or **Feature request** form. Questions go to
 [Discussions](https://github.com/DOstapovets/claude-noticed-issues/discussions), security
 problems to the private report described in [SECURITY.md](./SECURITY.md). Pull requests:
