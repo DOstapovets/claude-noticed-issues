@@ -261,7 +261,7 @@ const refreshGithub = async ($: Api) => {
 const PRIORITIES = [
   { value: 'high', label: 'High', color: 'error' },
   { value: 'medium', label: 'Medium', color: 'warning' },
-  { value: 'low', label: 'Low', color: 'suggestion' },
+  { value: 'low', label: 'Low', color: 'remember' },
 ] as const
 
 // An issue noted before priorities existed, or without one, is medium.
