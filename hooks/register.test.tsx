@@ -460,8 +460,11 @@ test('tabs show every issue or only those this session noted, once it has noted 
 
   await $.tool.call({ tool: NOTE, title: 'Noted here', priority: 'high' })
   const tabs = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await tabs.find({ key: 'tab-all' }))?.text).toBe('All 3')
-  expect((await tabs.find({ key: 'tab-session' }))?.text).toBe('This session 1')
+  expect((await tabs.find({ key: 'tab-all' }))?.text.trim()).toBe('All 3')
+  expect((await tabs.find({ key: 'tab-session' }))?.text.trim()).toBe('This session 1')
+  // The current tab is filled, the other drawn in the accent color on the pane's background.
+  expect((await tabs.find({ type: 'Text', text: ' All 3 ' }))?.props.backgroundColor).toBe('claude')
+  expect((await tabs.find({ type: 'Text', text: ' This session 1 ' }))?.props.backgroundColor).toBeUndefined()
   // This session's tab comes first.
   expect((await tabs.findAll({})).flatMap(el => (el.key?.startsWith('tab-') ? [el.key] : []))).toEqual([
     'tab-session',
@@ -470,6 +473,7 @@ test('tabs show every issue or only those this session noted, once it has noted 
   expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here', '▾ Medium 2', '#1 From before', '#2 Other session'])
   await tabs.press({ key: 'tab-session' })
   expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here'])
+  expect((await tabs.find({ type: 'Text', text: ' This session 1 ' }))?.props.backgroundColor).toBe('claude')
   await tabs.press({ key: 'tab-all' })
   expect(await lines(tabs)).toHaveLength(5)
   await tabs.press({ key: 'tab-session' })

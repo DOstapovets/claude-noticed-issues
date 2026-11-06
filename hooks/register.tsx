@@ -622,14 +622,15 @@ export const register: Register = (on, options) => {
     const current: Tab = mine.length > 0 ? await read($, tab) : 'all'
     const shown = current === 'session' ? mine : list
 
+    // The current tab is filled with the accent color, the other drawn in it on the pane's background.
     const tabButton = (value: Tab, label: string) => (
       <Button key={`tab-${value}`} plain onPress={() => update($, tab, () => value)}>
         {current === value ? (
-          <Text color="claude" bold underline>
-            {label}
+          <Text backgroundColor="claude" color="inverseText" bold>
+            {` ${label} `}
           </Text>
         ) : (
-          <Text dimColor>{label}</Text>
+          <Text color="claude">{` ${label} `}</Text>
         )}
       </Button>
     )
@@ -662,7 +663,7 @@ export const register: Register = (on, options) => {
           <Button key="feedback" plain dimColor label="✎ Feedback" onPress={() => startFeedback($)} />
         </Box>
         {mine.length > 0 && (
-          <Box gap={3} marginBottom={1}>
+          <Box gap={1} marginBottom={1}>
             {tabButton('session', `This session ${mine.length}`)}
             {tabButton('all', `All ${list.length}`)}
           </Box>
