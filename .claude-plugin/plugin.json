@@ -1,0 +1,9 @@
+{
+  "name": "noticed-issues",
+  "version": "0.9.0",
+  "description": "Per-project list of problems Claude noticed outside the current task, grouped by priority, in a pane opened from a ⚑ count above the prompt; start a background session or file a GitHub issue per entry and follow its status",
+  "author": { "name": "Dmytro Ostapovets" },
+  "license": "MIT",
+  "keywords": ["issues", "github", "pane", "background-sessions"],
+  "types": "./types/index.d.ts"
+}

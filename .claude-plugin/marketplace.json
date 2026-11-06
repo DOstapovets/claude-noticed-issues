@@ -1,0 +1,14 @@
+{
+  "name": "noticed-issues",
+  "description": "The noticed-issues plugin for Claude Code",
+  "owner": {
+    "name": "Dmytro Ostapovets"
+  },
+  "plugins": [
+    {
+      "name": "noticed-issues",
+      "source": "./",
+      "description": "Per-project list of problems Claude noticed outside the current task, grouped by priority; background sessions and GitHub issues per entry"
+    }
+  ]
+}
