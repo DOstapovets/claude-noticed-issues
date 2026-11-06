@@ -24,9 +24,10 @@ claude plugin install noticed-issues --marketplace DOstapovets/claude-noticed-is
 In the desktop app, where `/plugin` does not run: click **+** next to the prompt box,
 then **Plugins**, **Add marketplace** with `DOstapovets/claude-noticed-issues`, then **Add plugin**.
 
-Then tell Claude to use it. Add a rule like this to `~/.claude/CLAUDE.md` (or a
-project's `CLAUDE.md`), otherwise the model tends to mention findings in its reply
-and move on:
+Then tell Claude to use it. The first session in each repository offers to work out
+a rule for that repository (see [Repository rule](#repository-rule)). For every
+project at once, add a rule like this to `~/.claude/CLAUDE.md`, otherwise the model
+tends to mention findings in its reply and move on:
 
 ```md
 When you notice a problem outside the current task that you are not fixing now,
@@ -42,6 +43,7 @@ Call `resolve_issue` once such an issue is fixed.
 | --- | --- |
 | `note_issue` | Adds an entry: `title` (required), `detail`, `file` (`path[:line]`, a URL or a resource) and `priority` (`high`, `medium` or `low`; `medium` when left out). A field longer than its limit is cut, and the answer says so: `title` to 200 characters, `file` to 500, `detail` to 4000. An entry with the same title, ignoring case, is not added twice. |
 | `resolve_issue` | Removes an entry by its `id` once it is fixed or no longer relevant. |
+| `save_issue_rule` | Saves the [repository rule](#repository-rule), `rule`, cut to 4000 characters. Behind ToolSearch, as only the setup session calls it. |
 
 **A count above the prompt**, `⚑ 3 issues`, that opens the pane when pressed. Once the
 current session has noted something it says how many, `⚑ 3 issues · 1 this session`. It is
@@ -107,6 +109,7 @@ with the counts beside it, its directory on a line below.
 - `/issues` opens the pane (or prints the list, highest priority first, when no pane
   can be placed right now) and refreshes GitHub statuses.
 - `/issues clear` empties the project's list.
+- `/issues setup` starts the analysis that writes the [repository rule](#repository-rule), again whenever you want it redone.
 - `/issues feedback` does what the pane's **✎ Feedback** button does, below.
 
 **✎ Feedback**, in the pane's heading, is for reporting something about this plugin
@@ -118,6 +121,22 @@ the extension's version there), looks for
 an existing issue or discussion on the same thing, and shows you a draft. Only once
 you confirm does it post: a bug or feature request as an issue in this repository, a
 question or idea as a discussion, and it gives you the link.
+
+## Repository rule
+
+The first session with someone at the prompt in a repository asks once, **Analyze this
+repository so Claude knows when to note an issue here?** **Analyze** starts a
+background session (`claude attach <id>` joins it, as the toast says). It studies the
+repository, its docs, checks, config and what is already on the list, and drafts a
+short rule: what counts as a problem outside the task here, with examples from this
+stack and these paths, how to pick a priority, and what not to note. It shows you
+the draft, asks whether to note the problems it found on the way, and saves the rule
+once you confirm. **Not now** asks no more; `/issues setup` starts it later, or
+redoes the rule.
+
+The rule is kept in the plugin's store, under `rule:` beside the repository's list,
+not in the repository's files. It goes into the context of every session in the
+repository started after it was saved, its worktrees included.
 
 ## GitHub status
 
@@ -175,7 +194,7 @@ claude --plugin-dir .         # a session with this checkout loaded
 | --- | --- |
 | `hooks/register.tsx` | The hooks module: tools, `/issues`, the count, and the files it imports for the store, GitHub, background sessions, layout and the pane (listed in [AGENTS.md](./AGENTS.md#layout)). |
 | `hooks/*.test.ts(x)` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
-| `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus`, `Stored` and `Project` types and the `$.state` contract. |
+| `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus`, `Stored`, `Rule` and `Project` types and the `$.state` contract. |
 
 How to work on it, for people and agents alike, is in [AGENTS.md](./AGENTS.md); branch,
 commit, version and PR conventions in [docs/git_and_pr_conventions.md](./docs/git_and_pr_conventions.md).

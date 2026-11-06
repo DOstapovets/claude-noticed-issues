@@ -69,7 +69,17 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     surfaces: ['terminal'] as string[],
     // What `claude --bg` and `gh issue create` wait for before they answer.
     hold: undefined as Promise<void> | undefined,
+    // The questions `$.ui.ask` put, and the label the user picks; null dismisses the dialog.
+    asked: [] as string[],
+    choice: 'Not now' as string | null,
   }
+  on('tool.call', { tool: 'AskUserQuestion' }, (_, e) => {
+    const questions = (e as unknown as { questions: { question: string }[] }).questions
+    const question = questions[0]?.question ?? ''
+    seen.asked.push(question)
+    if (seen.choice === null) throw new Error('dismissed')
+    return { result: { questions, answers: { [question]: seen.choice } } }
+  })
   // The engine's own band, which the count must not replace.
   on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
     const { Text } = $.ui.resolve(e)
@@ -86,6 +96,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
   on('tool.register', (_, e) => ({ value: { tool: `mcp__noticed-issues__${e.name}` } }))
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('prompt.context', (_, e) => ({ blocks: e.blocks }))
   on('session.id', () => ({ value: seen.session }))
   on('session.surfaces', () => ({ value: seen.surfaces as never }))
   on('session.repo', () => ({
@@ -1088,4 +1099,108 @@ test('outside a repository the list is the directory\'s', async ($, on) => {
   engine(on, { 'issues:/scratch': { nextId: 3, items: [{ id: 2, title: 'Loose note', createdAt: 1 }] } })
   await $.session.start(start('/scratch'))
   expect(await flag($)).toBe('⚑ 1 issue')
+})
+
+const SAVE_RULE = 'mcp__noticed-issues__save_issue_rule'
+const RULE_BLOCK = 'noticedIssuesRule'
+
+// The blocks the plugin adds to a conversation's context.
+const context = async ($: Engine) => (await $.prompt.context({ blocks: [] })).blocks
+
+test('the first start in a repository offers an analysis once, which writes when to note an issue there', async ($, on) => {
+  const seen = engine(on)
+  seen.repo = '/repo'
+  seen.choice = 'Analyze'
+  await $.session.start(start('/repo/.claude/worktrees/wt'))
+  await seen.clock.settle()
+  expect(seen.asked).toHaveLength(1)
+  expect(seen.asked[0]).toContain('Analyze this repository')
+  expect(seen.argv).toHaveLength(1)
+  expect(seen.argv[0]?.slice(0, 2)).toEqual(['claude', '--bg'])
+  const text = seen.argv[0]?.[2] ?? ''
+  expect(text).toContain('save_issue_rule')
+  expect(text).toContain('AskUserQuestion')
+  expect(text).toContain('whether to note the problems')
+  expect(seen.toasts.at(-1)).toContain('claude attach 4b7cb777')
+
+  // Asked once per repository, whichever of its worktrees a session starts in.
+  await $.session.start(start('/repo'))
+  await seen.clock.settle()
+  expect(seen.asked).toHaveLength(1)
+  expect(seen.argv).toHaveLength(1)
+})
+
+test('Not now, or a dismissed dialog, starts nothing and is not asked again', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  expect(seen.asked).toHaveLength(1)
+  expect(seen.argv).toHaveLength(0)
+  expect(seen.toasts.at(-1)).toContain('/issues setup')
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  expect(seen.asked).toHaveLength(1)
+
+  seen.choice = null
+  await $.session.start(start('/proj/b'))
+  await seen.clock.settle()
+  expect(seen.asked).toHaveLength(2)
+  expect(seen.argv).toHaveLength(0)
+  await $.session.start(start('/proj/b'))
+  await seen.clock.settle()
+  expect(seen.asked).toHaveLength(2)
+})
+
+test('a session with no one at the prompt does not ask, and leaves the question for one that has', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start({ cwd: '/proj/a', surface: null, isInteractive: false })
+  await seen.clock.settle()
+  expect(seen.asked).toHaveLength(0)
+  expect(seen.store.get('rule:/proj/a')).toBeUndefined()
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  expect(seen.asked).toHaveLength(1)
+})
+
+test('a saved rule goes into the context of the repository\'s sessions', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  expect(await context($)).toEqual([])
+
+  const saved = await $.tool.call({ tool: SAVE_RULE, rule: '- Note a failing `make check` as high.' })
+  expect(answer(saved)).toContain('Saved')
+  expect(seen.store.get('rule:/proj/a')).toMatchObject({ text: '- Note a failing `make check` as high.', savedAt: 1_000 })
+
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  const blocks = await context($)
+  expect(blocks).toHaveLength(1)
+  expect(blocks[0]?.name).toBe(RULE_BLOCK)
+  expect(blocks[0]?.text).toContain('- Note a failing `make check` as high.')
+
+  // Another project has none.
+  await $.session.start(start('/proj/b'))
+  await seen.clock.settle()
+  expect(await context($)).toEqual([])
+
+  const long = await $.tool.call({ tool: SAVE_RULE, rule: 'r'.repeat(5000) })
+  expect(answer(long)).toContain('cut to 4000 characters')
+  expect(seen.store.get('rule:/proj/b').text).toHaveLength(4000)
+  expect(answer(await $.tool.call({ tool: SAVE_RULE, rule: ' ' }))).toContain('`rule` is required')
+})
+
+test('/issues setup starts the analysis whenever asked', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  const ran = await $.command.run({
+    command: 'issues',
+    args: 'setup',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 120 },
+  })
+  expect(ran.text).toContain('Setup session started')
+  expect(seen.argv).toHaveLength(1)
+  expect(seen.argv[0]?.[2]).toContain('save_issue_rule')
 })

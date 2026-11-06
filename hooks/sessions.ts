@@ -115,4 +115,38 @@ export async function startFeedback($: Api, where: string | undefined) {
   }
 }
 
-const SESSION_ID = /\b[0-9a-f]{8}(?:-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\b/
+const setupPrompt = () => [
+  'Work out when Claude should note an issue in this repository with the noticed-issues plugin, and save it as the repository\'s rule.',
+  '1. Study the repository: its README, CLAUDE.md and AGENTS.md, the stack, the checks (CI, tests, lint, type checks), the docs, the config and where secrets could leak, and what is already on the list (`/issues`).',
+  '2. Draft the rule as a short Markdown list, under 4000 characters: when to call `note_issue` here, with concrete examples of problems outside a task for this stack and these paths; how to choose `high`, `medium` or `low` here; and when not to call it (steps of the current task belong in the task list; what is fixed in passing).',
+  '3. Interview me with AskUserQuestion: show me the draft and ask whether to save it or what to change, and ask whether to note the problems you found while studying the repository.',
+  '4. Once I confirm, save it with the `save_issue_rule` tool (`mcp__noticed-issues__save_issue_rule`, load it through ToolSearch). If I said yes, note each problem found with `note_issue`.',
+].join('\n')
+
+export async function startSetup($: Api) {
+  const sessionId = await background($, setupPrompt(), 'the setup')
+
+  if (sessionId) {
+    await $.ui.toast(`⚙ Setup session ${sessionId} studies this repository · claude attach ${sessionId}`)
+  }
+
+  return sessionId
+}
+
+// Asked once per repository, on its first start: the caller has already kept that it asked.
+export async function offerSetup($: Api) {
+  const chosen = await $.ui
+    .ask('Analyze this repository so Claude knows when to note an issue here?', {
+      options: ['Analyze', 'Not now'],
+      header: 'Issues',
+    })
+    .catch(() => undefined)
+
+  if (chosen === 'Analyze') {
+    await startSetup($)
+  } else {
+    await $.ui.toast('⚑ /issues setup analyzes this repository whenever you want')
+  }
+}
+
+const SESSION_ID =/\b[0-9a-f]{8}(?:-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?\b/

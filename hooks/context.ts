@@ -8,6 +8,9 @@ export const session = {
   // Set by session.start, which also runs again on every reload.
   cwd: '',
   storeKey: '',
+  // Where the repository's rule is kept, `rule:` beside `issues:`, and its text once saved.
+  ruleKey: '',
+  rule: undefined as string | undefined,
   nextId: 1,
   // The repository's `origin`, kept with the list so the Projects tab of another project can name it.
   remote: undefined as string | undefined,

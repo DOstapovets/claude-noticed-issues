@@ -1,19 +1,21 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { Issue, Priority } from '../types'
+import type { Issue, Priority, Rule } from '../types'
 import { MINUTE, session } from './context'
 import type { Api } from './context'
 import { onGithub, refreshGithub } from './github'
 import { arrange, cardColumnsOf, clip, count, firstCard, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
-import { startFeedback, whereRun } from './sessions'
+import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
 import { change, COLLAPSED_KEY, load, loadProjects, migrate, save } from './store'
 
 const PANE = 'noticed-issues'
 const TITLE = 'Noticed issues'
 const NOTE = 'mcp__noticed-issues__note_issue'
 const RESOLVE = 'mcp__noticed-issues__resolve_issue'
+const SAVE_RULE = 'mcp__noticed-issues__save_issue_rule'
+const RULE_LIMIT = 4000
 // Another session of this project (a background one started from the pane)
 // may resolve issues; pick its changes up this often.
 const RELOAD_MS = 30_000
@@ -45,6 +47,7 @@ export const register: Register = (on, options) => {
     // tree's root names it. Outside a repository the directory does.
     const repo = await $.session.repo()
     session.storeKey = `issues:${repo?.root ?? session.cwd}`
+    session.ruleKey = `rule:${repo?.root ?? session.cwd}`
     session.remote = repo?.remote ?? undefined
     session.github = options.github === 'on' || (options.github !== 'off' && onGithub(repo?.remote))
     session.nextId = 1
@@ -56,6 +59,8 @@ export const register: Register = (on, options) => {
     await loadProjects($)
     const folded = (await $.store.get(COLLAPSED_KEY)) as Priority[] | undefined
     await update($, collapsed, () => folded ?? [])
+    const rule = (await $.store.get(session.ruleKey)) as Rule | undefined
+    session.rule = rule?.text
 
     await $.tool.register({
       name: 'note_issue',
@@ -89,11 +94,23 @@ export const register: Register = (on, options) => {
         required: ['id'],
       },
     })
+    // Left behind ToolSearch: only the setup session calls it.
+    await $.tool.register({
+      name: 'save_issue_rule',
+      description:
+        'Save when to note an issue in this repository, as the noticed-issues setup worked it out with the user. ' +
+        'It goes into the context of every later session in the repository and replaces the rule saved before.',
+      inputSchema: {
+        type: 'object',
+        properties: { rule: { type: 'string', description: 'The rule, a short Markdown list' } },
+        required: ['rule'],
+      },
+    })
     await $.command.register({
       name: 'issues',
       description:
-        "Show this project's noticed issues; `/issues clear` empties the list, `/issues feedback` reports a bug or an idea about this plugin",
-      argumentHint: '[clear|feedback]',
+        "Show this project's noticed issues; `/issues clear` empties the list, `/issues setup` analyzes the repository to write when to note an issue here, `/issues feedback` reports a bug or an idea about this plugin",
+      argumentHint: '[clear|setup|feedback]',
     })
 
     // Kept as read, so ages are not a minute short; written once the minute turns.
@@ -113,6 +130,14 @@ export const register: Register = (on, options) => {
 
     if (list.length > 0) {
       void openPane($)
+    }
+
+    // Kept as asked before asking, so the setup session, and any other started
+    // meanwhile, does not ask again.
+    if (e.isInteractive && rule === undefined) {
+      const asked: Rule = { askedAt: await $.clock.now() }
+      await $.store.set(session.ruleKey, asked)
+      void offerSetup($)
     }
 
     return ran
@@ -179,7 +204,50 @@ export const register: Register = (on, options) => {
     return { result: `Resolved #${id}.` }
   })
 
+  on('tool.call', { tool: SAVE_RULE }, async ($, e) => {
+    const rule = text((e as unknown as Record<string, unknown>).rule)
+
+    if (rule === undefined) {
+      return { result: 'Not saved: `rule` is required.' }
+    }
+
+    const stored = (await $.store.get(session.ruleKey)) as Rule | undefined
+    const now = await $.clock.now()
+    session.rule = clip(rule, RULE_LIMIT)
+    const saved: Rule = { askedAt: stored?.askedAt ?? now, text: session.rule, savedAt: now }
+    await $.store.set(session.ruleKey, saved)
+
+    const note = rule.length > RULE_LIMIT ? ` (cut to ${RULE_LIMIT} characters)` : ''
+    return { result: `Saved the rule${note}; sessions in this repository started from now on carry it.` }
+  })
+
+  // The rule rides in the context of each conversation in the repository, once, as the instruction files do.
+  on('prompt.context', async (_, e, next) => {
+    const ran = await next(e)
+
+    if (session.rule === undefined) {
+      return ran
+    }
+
+    return {
+      ...ran,
+      blocks: [
+        ...ran.blocks,
+        { name: 'noticedIssuesRule', text: `When to note an issue in this repository (noticed-issues):\n${session.rule}` },
+      ],
+    }
+  })
+
   on('command.run', { command: 'issues' }, async ($, e) => {
+    if (e.args.trim() === 'setup') {
+      const sessionId = await startSetup($)
+      return {
+        text: sessionId
+          ? 'Setup session started in the background: attach to it to go through the rule it drafts.'
+          : 'Could not start the setup session.',
+      }
+    }
+
     if (e.args.trim() === 'feedback') {
       // Typed at the terminal, the run says its layout; from elsewhere, the one surface
       // the session draws on, if only one.

@@ -36,6 +36,14 @@ export type Stored = {
   updatedAt?: number
 }
 
+/** What `$.store` keeps per repository under `rule:<root>`: when the analysis was offered, and the rule it saved, if any. */
+export type Rule = {
+  askedAt: number
+  /** When to note an issue in this repository, added to the context of its sessions. */
+  text?: string
+  savedAt?: number
+}
+
 /** Another project's list, as the pane's Projects tab shows it. */
 export type Project = {
   /** The key's directory: the main working tree's root, or the directory outside a repository. */

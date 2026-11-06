@@ -52,7 +52,7 @@ hooks/github.ts                  GitHub issues through gh: filing one, reading i
 hooks/sessions.ts                Background sessions through claude --bg: a fix, Feedback
 hooks/pane.tsx                   The pane: groups, cards, tabs, scrolling
 hooks/*.test.ts(x)               Tests; register.test.tsx stubs gh, git and claude --bg
-types/index.d.ts                 Issue, Priority, Tab, GithubStatus, Stored, Project and the $.state contract
+types/index.d.ts                 Issue, Priority, Tab, GithubStatus, Stored, Rule, Project and the $.state contract
 docs/                            Conventions for contributors and agents
 .claude/settings.json            Project hooks; their scripts are in .claude/hooks/
 .github/workflows/               Checks, commit and PR-title lint, release-please
@@ -102,8 +102,10 @@ and say in the PR that you did.
 
 - `$.store`, which lasts across sessions: one list per repository under
   `issues:<main worktree root>` (`issues:<cwd>` outside a repository), with its
-  `remote` and `updatedAt`, and the folded groups under `collapsed`. The Projects tab
-  reads every other `issues:` key.
+  `remote` and `updatedAt`, the repository's rule under `rule:<same root>` (when the
+  setup was offered and the text it saved, added to each conversation by
+  `prompt.context`), and the folded groups under `collapsed`. The Projects tab reads
+  every other `issues:` key.
 - `$.state`, which lasts for the session and is mirrored for drawing: the list, the
   folded groups, the tab, the other projects' lists and the one open on their tab, the card that asks to confirm a delete, where each group is
   scrolled, and the minute a card's age is told from. Each value is declared in
