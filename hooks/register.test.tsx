@@ -395,6 +395,9 @@ test('issues are grouped by priority, highest first, and moved between groups', 
   ])
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  // The arrows are drawn hidden, one row of them per card: the card's hover shows them,
+  // which the test kit does not draw.
+  expect((await ui.findAll({ type: 'Box' })).filter(el => el.props.display === 'none')).toHaveLength(4)
   // Each end has only the button that leaves it.
   expect(await ui.find({ key: 'raise-3' })).toBeUndefined()
   expect(await ui.find({ key: 'lower-1' })).toBeUndefined()

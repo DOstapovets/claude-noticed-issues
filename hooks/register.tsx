@@ -783,9 +783,10 @@ export const register: Register = (on, options) => {
               />
             )}
           </Box>
-          {/* At the right edge, each arrow in the color of the group it moves the issue to,
-              padded with a space a side so it is easier to hit. */}
-          <Box gap={2}>
+          {/* At the right edge, shown while the pointer is over the card: each arrow in the
+              color of the group it moves the issue to, padded with a space a side so it is
+              easier to hit. Hidden, it keeps no room, and shown it takes none from the row. */}
+          <Box gap={2} display="none" hover={{ display: 'flex' }}>
             {rank(issue) > 0 && (
               <Button key={`raise-${issue.id}`} plain onPress={() => shiftPriority($, issue.id, -1)}>
                 <Text color={PRIORITIES[rank(issue) - 1]!.color} bold>
