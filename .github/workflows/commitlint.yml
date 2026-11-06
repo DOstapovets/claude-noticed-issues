@@ -1,0 +1,22 @@
+name: Commit messages
+
+# release-please reads the version from these, so a malformed one costs a release.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  commitlint:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # No config in the repository: the action falls back to @commitlint/config-conventional.
+      - uses: wagoid/commitlint-github-action@v6

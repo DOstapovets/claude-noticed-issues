@@ -1,0 +1,20 @@
+name: Release
+
+# On every push to main, opens or updates a release PR that raises the version in
+# .claude-plugin/plugin.json and adds to CHANGELOG.md, from the commits since the
+# last release: feat raises the minor version, fix the patch, a breaking change the
+# minor while the version is 0.x. Merging that PR tags the release and publishes it.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v5

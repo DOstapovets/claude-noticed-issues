@@ -1,0 +1,25 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  plugin:
+    name: Validate and test the plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      # The latest release on purpose: the plugin API is early access, and a change
+      # in it should turn this red before it reaches a user. Neither command needs a login.
+      - run: npm install --global @anthropic-ai/claude-code@latest
+      - run: claude --version
+      - run: claude plugin validate .
+      - run: claude plugin test .
