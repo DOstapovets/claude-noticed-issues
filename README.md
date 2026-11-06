@@ -82,13 +82,14 @@ three lines. These are its controls:
 **Other projects.** Once another project has a list too, a **Projects** tab stands at
 the right end of the tabs' row, in a secondary color, also when this project's list is
 empty (open the pane with `/issues`). It
-lists every other project the plugin has kept a list for, one row each: its name
+lists this project first, in the accent color and marked `this project` (pressing it
+leads back to its own list), then every other project the plugin has kept a list for, one row each: its name
 (`owner/repo` from its `origin` remote, else its directory's name), its directory, how many entries
 it has in each priority, in the groups' colors (`● 2 ● 1`), and when its list last
 changed. Projects with no entries left come last, dimmed, as `no issues`. Press a
 project to see its entries in the same groups and cards, read only: no **▶**, **↗**,
 **✕** or **▲ / ▼**; open a session in that project to act on them. **← Projects**
-leads back to the list. The list is read again each time the tab is pressed and
+leads back to the list. The list is read again each time the tab is pressed, on `/issues`, and, while the tab is open,
 every 30 seconds.
 
 **Outside the terminal** (VS Code, the desktop app, the mobile app) each group takes

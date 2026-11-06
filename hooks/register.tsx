@@ -24,6 +24,8 @@ const GITHUB_MS = 5 * 60_000
 const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
 // The card whose ✕ asks to confirm, for this session only.
 const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, null)
+// The pane's tab, for this session only.
+const tab = atom({ plugin: 'noticed-issues', key: 'tab' } as const, 'all')
 // Where each open group is scrolled to, for this session only.
 const scrolled = atom({ plugin: 'noticed-issues', key: 'scrolled' } as const, {})
 // The time the cards' ages are told from, moved on once a minute: the pane redraws then, not on every tick.
@@ -101,7 +103,11 @@ export const register: Register = (on, options) => {
     }
     await tick()
     $.clock.every(AGE_MS, () => void tick())
-    $.clock.every(RELOAD_MS, () => void load($).then(() => loadProjects($)))
+    // The other projects are read again only while their tab is open: pressing it, and `/issues`, read them too.
+    $.clock.every(RELOAD_MS, async () => {
+      await load($)
+      if ((await read($, tab)) === 'projects') await loadProjects($)
+    })
     $.clock.every(GITHUB_MS, () => void refreshGithub($))
     void refreshGithub($)
 
@@ -194,6 +200,7 @@ export const register: Register = (on, options) => {
     }
 
     const list = await load($)
+    await loadProjects($)
     void refreshGithub($)
     const opened = await openPane($)
 

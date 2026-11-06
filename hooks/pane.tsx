@@ -321,16 +321,24 @@ export async function renderPane($: Api, e: PaneRender) {
 
   // One row per project: its name and directory, then how many issues of each
   // priority it has, in their groups' colors, and when its list last changed.
-  // A project with none is dim and comes last.
-  const projectRow = (p: Project) => {
+  // A project with none is dim and comes last. This project heads the list, in
+  // the accent color and marked as such; pressing it leads back to its own list.
+  const projectRow = (p: Project, isCurrent = false) => {
     const empty = p.items.length === 0
 
     return (
       <Box key={`project-${p.root}`} justifyContent="space-between" flexShrink={0}>
         <Box flexGrow={1} flexShrink={1}>
-          <Button key={`open-${p.root}`} plain onPress={() => openProject($, p.root)}>
-            <Text wrap="truncate-end" {...(empty ? { dimColor: true } : {})}>
-              <Text bold={!empty}>{projectName(p.root, p.remote)}</Text> <Text dimColor>{p.root}</Text>
+          <Button
+            key={`open-${p.root}`}
+            plain
+            onPress={() => (isCurrent ? chooseTab($, 'all') : openProject($, p.root))}
+          >
+            <Text wrap="truncate-end" {...(empty && !isCurrent ? { dimColor: true } : {})}>
+              <Text bold={!empty || isCurrent} {...(isCurrent ? { color: 'claude' as const } : {})}>
+                {projectName(p.root, p.remote)}
+              </Text>{' '}
+              <Text dimColor>{p.root}</Text>
             </Text>
           </Button>
         </Box>
@@ -350,7 +358,11 @@ export async function renderPane($: Api, e: PaneRender) {
               )
             })
           )}
-          {p.updatedAt !== undefined && <Text dimColor>{age(p.updatedAt, now)}</Text>}
+          {isCurrent ? (
+            <Text color="claude">this project</Text>
+          ) : (
+            p.updatedAt !== undefined && <Text dimColor>{age(p.updatedAt, now)}</Text>
+          )}
         </Box>
       </Box>
     )
@@ -437,7 +449,12 @@ export async function renderPane($: Api, e: PaneRender) {
         </>
       )}
       {current !== 'projects' && list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
-      {listsProjects && others.map(projectRow)}
+      {listsProjects &&
+        projectRow(
+          { root: session.storeKey.slice('issues:'.length), ...(session.remote ? { remote: session.remote } : {}), items: list },
+          true,
+        )}
+      {listsProjects && others.map(p => projectRow(p))}
       {back}
       {/* A folded group keeps its place in the priority order. */}
       {groups.map(group)}

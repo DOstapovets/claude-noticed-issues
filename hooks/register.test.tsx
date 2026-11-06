@@ -647,10 +647,13 @@ test('the Projects tab lists the other projects and opens one read only', async 
   ])
   expect(await lines(ui)).toEqual(['▾ Medium 1', '#1 Here'])
 
-  // Those with issues first, named from the remote where there is one; this project is not among them.
+  // This project first, marked; then those with issues, named from the remote where there is one.
   await ui.press({ key: 'tab-projects' })
   expect((await ui.find({ type: 'Text', text: ' Projects ' }))?.props.backgroundColor).toBe('subtle')
-  const rows = async () => (await ui.findAll({})).flatMap(el => (el.key?.startsWith('project-/') ? [el.text] : []))
+  const rows = async () =>
+    (await ui.findAll({})).flatMap(el => (el.key?.startsWith('project-/') && el.key !== 'project-/proj/a' ? [el.text] : []))
+  expect((await ui.find({ key: 'project-/proj/a' }))?.text).toBe('a /proj/a● 1this project')
+  expect((await ui.findAll({})).find(el => el.key?.startsWith('project-'))?.key).toBe('project-/proj/a')
   expect(await rows()).toEqual([
     expect.stringMatching(/^o\/b \/proj\/b● 1● 1just now$/),
     expect.stringMatching(/^c \/proj\/c.*no issues.*just now$/),
@@ -669,7 +672,8 @@ test('the Projects tab lists the other projects and opens one read only', async 
 
   await ui.press({ key: 'projects-back' })
   expect(await rows()).toHaveLength(2)
-  await ui.press({ key: 'tab-all' })
+  // This project's row leads back to its own list.
+  await ui.press({ key: 'open-/proj/a' })
   expect(await lines(ui)).toEqual(['▾ Medium 1', '#1 Here'])
 
   // Another session's change shows when the tab is opened again.
