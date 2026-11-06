@@ -60,7 +60,9 @@ many cards are above, `▾ High 5 ↑ 2 above`. Which groups are folded is remem
 sessions and projects. Once the current session has noted something, two tabs sit at
 the top of the pane, **This session 2** and **All 5**: the first shows only the entries
 this session noted. The tab goes away again when none of them are left, and the pane
-then shows every entry. Each entry is a card with its number and title in bold, then, dimmed, the
+then shows every entry. Within a group the newest entry comes first. Each entry is a card with its number and
+title in bold and, at the top right, when it was noted: `just now`, `5m ago`, `3h ago`,
+then after a day the date and time, `06.11 14:05`. Below the title, dimmed, come the
 file on one line (shortened in the middle when it does not fit) and the detail cut to
 three lines. These are its controls:
 

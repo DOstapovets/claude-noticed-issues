@@ -42,6 +42,8 @@ declare module 'claude-code' {
       deleting: number | null
       /** Per open group, the first card it shows: each group scrolls on its own, under its heading. */
       scrolled: Partial<Record<Priority, number>>
+      /** The time a card's age is told from, `$.clock.now()` as read once each minute turned. */
+      minute: number
     }
   }
 }

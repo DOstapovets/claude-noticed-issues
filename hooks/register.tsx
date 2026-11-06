@@ -25,6 +25,10 @@ const tab = atom({ plugin: 'noticed-issues', key: 'tab' } as const, 'all')
 const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, null)
 // Where each open group is scrolled to, for this session only.
 const scrolled = atom({ plugin: 'noticed-issues', key: 'scrolled' } as const, {})
+// The time the cards' ages are told from, moved on once a minute: the pane redraws then, not on every tick.
+const minute = atom({ plugin: 'noticed-issues', key: 'minute' } as const, 0)
+const MINUTE = 60_000
+const AGE_MS = 10_000
 
 // Set by session.start, which also runs again on every reload.
 let cwd = ''
@@ -340,13 +344,15 @@ const arrange = (
   bodyRows: number,
   columns: number,
   confirming: number | null,
+  now: number,
 ) => {
   const groups = PRIORITIES.map((priority, i) => ({
     priority,
-    items: shown.filter(issue => rank(issue) === i),
+    // Newest first.
+    items: shown.filter(issue => rank(issue) === i).sort((a, b) => b.createdAt - a.createdAt || b.id - a.id),
     isOpen: !folded.includes(priority.value),
   })).filter(g => g.items.length > 0)
-  const heights = groups.map(g => g.items.map(issue => cardRows(issue, columns, issue.id === confirming)))
+  const heights = groups.map(g => g.items.map(issue => cardRows(issue, columns, issue.id === confirming, now)))
   const open = groups.flatMap((g, i) => (g.isOpen ? [i] : []))
   const free = Math.max(0, bodyRows - top - (groups.length - open.length))
   const given = share(
@@ -402,14 +408,31 @@ const wrappedRows = (text: string, width: number) => {
 
 // The rows a card takes with `columns` inside its border. A plugin cannot
 // measure what it drew, so a group's rows are worked out from these.
-const cardRows = (issue: Issue, columns: number, isConfirming: boolean) => {
-  // The corner beside the heading: ` ✕ `, or `Delete? ✓ ↩ `, and a column before it.
-  const head = Math.max(1, columns - (isConfirming ? 14 : 4))
+const cardRows = (issue: Issue, columns: number, isConfirming: boolean, now: number) => {
+  // The corner beside the heading, and a column before it: `5m ago  ✕ `, or `Delete? ✓ ↩ `.
+  const head = Math.max(1, columns - (isConfirming ? 14 : 5 + age(issue.createdAt, now).length))
   const title = issue.githubUrl ? 1 + wrappedRows(issue.title, head) : wrappedRows(`#${issue.id} ${issue.title}`, head)
   const detail = issue.detail ? wrappedRows(clip(issue.detail, DETAIL_LINES * columns), columns) : 0
 
   // With the border's two rows, the controls' row and the blank row below the card.
   return title + (issue.file ? 1 : 0) + detail + 4
+}
+
+const two = (n: number) => String(n).padStart(2, '0')
+
+// When it was noted, compactly: how long ago within a day, the date and time
+// after that, the year too when it is not this one.
+const age = (at: number, now: number) => {
+  const minutes = Math.floor((now - at) / MINUTE)
+
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}h ago`
+
+  const date = new Date(at)
+  const year = date.getFullYear() === new Date(now).getFullYear() ? '' : `.${two(date.getFullYear() % 100)}`
+
+  return `${two(date.getDate())}.${two(date.getMonth() + 1)}${year} ${two(date.getHours())}:${two(date.getMinutes())}`
 }
 
 // Inside a card: its border and padding take two columns a side.
@@ -508,6 +531,13 @@ export const register: Register = (on, options) => {
       argumentHint: '[clear|feedback]',
     })
 
+    // Kept as read, so ages are not a minute short; written once the minute turns.
+    const tick = async () => {
+      const now = await $.clock.now()
+      if (Math.floor((await read($, minute)) / MINUTE) !== Math.floor(now / MINUTE)) await update($, minute, () => now)
+    }
+    await tick()
+    $.clock.every(AGE_MS, () => void tick())
     $.clock.every(RELOAD_MS, () => void load($))
     $.clock.every(GITHUB_MS, () => void refreshGithub($))
     void refreshGithub($)
@@ -634,6 +664,7 @@ export const register: Register = (on, options) => {
       e.bodyRows,
       cardColumnsOf(paneColumns),
       await read($, deleting),
+      await read($, minute),
     ).filter(g => g.isOpen)
     const row = e.pointer?.row
     const target = row === undefined ? open[0] : open.find(g => row >= g.top && row < g.top + g.rows)
@@ -653,8 +684,9 @@ export const register: Register = (on, options) => {
     paneColumns = e.props.bodyColumns
     const cardColumns = cardColumnsOf(e.props.bodyColumns)
     const confirming = await read($, deleting)
+    const now = await read($, minute)
 
-    // The card's top right corner: a red ✕, which asks once before it deletes.
+    // The card's top right corner: when it was noted, and a red ✕, which asks once before it deletes.
     const corner = (issue: Issue) =>
       confirming === issue.id ? (
         <Box flexShrink={0} marginLeft={1}>
@@ -668,6 +700,7 @@ export const register: Register = (on, options) => {
         </Box>
       ) : (
         <Box flexShrink={0} marginLeft={1}>
+          <Text dimColor>{age(issue.createdAt, now)} </Text>
           <Button key={`delete-${issue.id}`} plain onPress={() => update($, deleting, () => issue.id)}>
             <Text color="error" bold>
               {' ✕ '}
@@ -788,7 +821,7 @@ export const register: Register = (on, options) => {
     )
 
     const bodyRows = e.props.scroll.bodyRows
-    const groups = arrange(shown, await read($, collapsed), headRows(mine.length > 0), bodyRows, cardColumns, confirming)
+    const groups = arrange(shown, await read($, collapsed), headRows(mine.length > 0), bodyRows, cardColumns, confirming, now)
     const at = await read($, scrolled)
 
     const group = ({ priority, items, isOpen, rows, lastFirst }: (typeof groups)[number]) => {

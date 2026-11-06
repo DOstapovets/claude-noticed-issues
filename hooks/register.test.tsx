@@ -277,7 +277,7 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', G
   expect(seen.viewed).toEqual(['https://github.com/o/r/issues/7', 'https://github.com/o/r/issues/8'])
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   // The link and its status sit in the card's heading, after the number.
-  expect((await lines(ui))[1]).toMatch(/^#1 ↗ #7 · open · 📋 To do/)
+  expect((await lines(ui)).find(line => line.startsWith('#1 '))).toMatch(/^#1 ↗ #7 · open · 📋 To do/)
   await ui.unmount()
 
   // Closed on GitHub, as not planned: gone on the next pass, here the one `/issues` starts.
@@ -383,13 +383,13 @@ test('issues are grouped by priority, highest first, and moved between groups', 
     return drawn
   }
 
-  // No priority, or one it does not know, is medium.
+  // No priority, or one it does not know, is medium; newest first within a group.
   expect(await order()).toEqual([
     '▾ High 1',
     '#3 Leaked key',
     '▾ Medium 2',
-    '#2 Stale doc',
     '#4 Odd priority',
+    '#2 Stale doc',
     '▾ Low 1',
     '#1 Typo in footer',
   ])
@@ -406,11 +406,11 @@ test('issues are grouped by priority, highest first, and moved between groups', 
 
   expect(await order()).toEqual([
     '▾ High 2',
-    '#2 Stale doc',
     '#3 Leaked key',
+    '#2 Stale doc',
     '▾ Medium 2',
-    '#1 Typo in footer',
     '#4 Odd priority',
+    '#1 Typo in footer',
   ])
 })
 
@@ -471,7 +471,7 @@ test('tabs show every issue or only those this session noted, once it has noted 
     'tab-session',
     'tab-all',
   ])
-  expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here', '▾ Medium 2', '#1 From before', '#2 Other session'])
+  expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here', '▾ Medium 2', '#2 Other session', '#1 From before'])
   await tabs.press({ key: 'tab-session' })
   expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here'])
   expect((await tabs.find({ type: 'Text', text: ' This session 1 ' }))?.props.backgroundColor).toBe('claude')
@@ -484,7 +484,7 @@ test('tabs show every issue or only those this session noted, once it has noted 
   await $.tool.call({ tool: RESOLVE, id: 3 })
   const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await after.find({ key: 'tab-session' })).toBeUndefined()
-  expect(await lines(after)).toEqual(['▾ Medium 2', '#1 From before', '#2 Other session'])
+  expect(await lines(after)).toEqual(['▾ Medium 2', '#2 Other session', '#1 From before'])
   await after.unmount()
 
   // To another session, an issue noted here is one of the rest.
@@ -522,21 +522,51 @@ test('each open group scrolls its cards under a heading that stays put', async (
   const high = async () => (await lines(ui)).filter(line => line.startsWith('#') && line.includes('Leak'))
 
   // Rows 4 to 28 are High's, 29 to 39 Medium's; a tick moves one card.
+  expect((await high())[0]).toBe('#8 Leak 8')
   await scroll(1, 10)
-  expect((await high())[0]).toBe('#2 Leak 2')
+  expect((await high())[0]).toBe('#7 Leak 7')
   expect(await ui.find({ type: 'Text', text: / ↑ 1 above/ })).toBeDefined()
   await scroll(3, 10)
-  expect((await high())[0]).toBe('#3 Leak 3')
+  expect((await high())[0]).toBe('#6 Leak 6')
   // No further than the view that shows the last card: 4 cards of 5 rows fit in 24.
   for (let i = 0; i < 6; i += 1) await scroll(1, 10)
-  expect((await high())[0]).toBe('#5 Leak 5')
+  expect((await high())[0]).toBe('#4 Leak 4')
   // Medium shows all its cards, so it does not scroll.
   await scroll(1, 35)
-  expect((await lines(ui)).slice(-3)).toEqual(['▾ Medium 2', '#9 Doc 1', '#10 Doc 2'])
+  expect((await lines(ui)).slice(-3)).toEqual(['▾ Medium 2', '#10 Doc 2', '#9 Doc 1'])
   // The scroll keys, with no pointer, move the first open group, never above its first card.
   for (let i = 0; i < 6; i += 1) await scroll(-1)
-  expect((await high())[0]).toBe('#1 Leak 1')
+  expect((await high())[0]).toBe('#8 Leak 8')
   await ui.unmount()
+})
+
+test('a card says when it was noted, newest first in its group', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Older' })
+  await seen.clock.advance(2 * 60 * 60_000)
+  await $.tool.call({ tool: NOTE, title: 'Newer' })
+
+  const ages = async () => {
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    // The ages as drawn, the newer card's first.
+    const [newer, older] = (await ui.findAll({ type: 'Text' }))
+      .map(el => el.text.trim())
+      .filter(text => /^(just now|\d+[mh] ago|\d\d\.\d\d.* \d\d:\d\d)$/.test(text))
+    const drawn = { order: (await lines(ui)).slice(1), older, newer }
+    await ui.unmount()
+    return drawn
+  }
+
+  expect(await ages()).toEqual({ order: ['#2 Newer', '#1 Older'], older: '2h ago', newer: 'just now' })
+  // Told again as the minutes pass.
+  await seen.clock.advance(5 * 60_000)
+  expect((await ages()).newer).toBe('5m ago')
+  // After a day, the date and time it was noted.
+  for (let hour = 0; hour < 24; hour += 1) await seen.clock.advance(60 * 60_000)
+  const noted = new Date(1_000)
+  const two = (n: number) => String(n).padStart(2, '0')
+  expect((await ages()).older).toBe(`${two(noted.getDate())}.${two(noted.getMonth() + 1)} ${two(noted.getHours())}:${two(noted.getMinutes())}`)
 })
 
 test('the red ✕ in a card\'s corner asks once before it deletes', async ($, on) => {
@@ -653,7 +683,7 @@ test('worktrees share the repository list, and their old lists fold into it', as
   await $.session.start(start('/repo/.claude/worktrees/wt'))
   expect(await flag($)).toBe('⚑ 3 issues')
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await lines(ui)).toEqual(['▾ Medium 3', '#4 Leaked key', '#5 No memory limit', '#6 Stale doc'])
+  expect(await lines(ui)).toEqual(['▾ Medium 3', '#6 Stale doc', '#5 No memory limit', '#4 Leaked key'])
   expect(await ui.find({ type: 'Text', text: /Vendored issue/ })).toBeUndefined()
   await ui.unmount()
   expect(answer(await $.tool.call({ tool: NOTE, title: 'Noted from a worktree' }))).toContain('#7')
