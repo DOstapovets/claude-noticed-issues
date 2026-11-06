@@ -130,7 +130,7 @@ const flag = async ($: Engine) => {
 // `#<id> <its heading's text>`, the GitHub link and status included.
 const lines = async (ui: { findAll: (query: object) => Promise<{ type: string; key?: string; text: string }[]> }) =>
   (await ui.findAll({})).flatMap(el =>
-    el.type === 'Text' && el.text.startsWith('● ')
+    el.type === 'Text' && /^[▾▸] /.test(el.text)
       ? [el.text]
       : el.key?.startsWith('head-')
         ? [el.text.replace(/^(#\d+)/, '$1 ')]
@@ -295,7 +295,7 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', G
   expect(await flag($)).toBe('⚑ 1 issue')
   expect(seen.toasts.at(-1)).toContain('#3')
   const later = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await lines(later)).toEqual(['● Medium 1', '#2 Not linked'])
+  expect(await lines(later)).toEqual(['▾ Medium 1', '#2 Not linked'])
   await later.unmount()
 })
 
@@ -381,12 +381,12 @@ test('issues are grouped by priority, highest first, and moved between groups', 
 
   // No priority, or one it does not know, is medium.
   expect(await order()).toEqual([
-    '● High 1',
+    '▾ High 1',
     '#3 Leaked key',
-    '● Medium 2',
+    '▾ Medium 2',
     '#2 Stale doc',
     '#4 Odd priority',
-    '● Low 1',
+    '▾ Low 1',
     '#1 Typo in footer',
   ])
 
@@ -401,13 +401,37 @@ test('issues are grouped by priority, highest first, and moved between groups', 
   await again.unmount()
 
   expect(await order()).toEqual([
-    '● High 2',
+    '▾ High 2',
     '#2 Stale doc',
     '#3 Leaked key',
-    '● Medium 2',
+    '▾ Medium 2',
     '#1 Typo in footer',
     '#4 Odd priority',
   ])
+})
+
+test('a priority group folds to the bottom of the pane, and stays folded', async ($, on) => {
+  engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Leaked key', priority: 'high' })
+  await $.tool.call({ tool: NOTE, title: 'Stale doc' })
+  await $.tool.call({ tool: NOTE, title: 'Typo in footer', priority: 'low' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'group-high' })
+  expect(await lines(ui)).toEqual(['▾ Medium 1', '#2 Stale doc', '▾ Low 1', '#3 Typo in footer', '▸ High 1'])
+  await ui.press({ key: 'group-medium' })
+  expect(await lines(ui)).toEqual(['▾ Low 1', '#3 Typo in footer', '▸ High 1', '▸ Medium 1'])
+  await ui.unmount()
+
+  // Kept for the next session, in another project too.
+  await $.session.start(start('/proj/b'))
+  await $.tool.call({ tool: NOTE, title: 'Other project', priority: 'high' })
+  const other = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await lines(other)).toEqual(['▸ High 1'])
+  await other.press({ key: 'group-high' })
+  expect(await lines(other)).toEqual(['▾ High 1', '#1 Other project'])
+  await other.unmount()
 })
 
 test('both tools stay in the prompt rather than behind ToolSearch', async ($, on) => {
@@ -453,7 +477,7 @@ test('worktrees share the repository list, and their old lists fold into it', as
   await $.session.start(start('/repo/.claude/worktrees/wt'))
   expect(await flag($)).toBe('⚑ 3 issues')
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await lines(ui)).toEqual(['● Medium 3', '#4 Leaked key', '#5 No memory limit', '#6 Stale doc'])
+  expect(await lines(ui)).toEqual(['▾ Medium 3', '#4 Leaked key', '#5 No memory limit', '#6 Stale doc'])
   expect(await ui.find({ type: 'Text', text: /Vendored issue/ })).toBeUndefined()
   await ui.unmount()
   expect(answer(await $.tool.call({ tool: NOTE, title: 'Noted from a worktree' }))).toContain('#7')

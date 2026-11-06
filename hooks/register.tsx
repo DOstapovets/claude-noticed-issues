@@ -16,6 +16,9 @@ const RELOAD_MS = 30_000
 const GITHUB_MS = 5 * 60_000
 
 const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
+// The priority groups folded in the pane, the same in every project.
+const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
+const COLLAPSED_KEY = 'collapsed'
 
 // Set by session.start, which also runs again on every reload.
 let cwd = ''
@@ -263,6 +266,13 @@ const shiftPriority = async ($: Api, id: number, step: -1 | 1) => {
   )
 }
 
+const toggleGroup = async ($: Api, priority: Priority) => {
+  const next = await update($, collapsed, list =>
+    list.includes(priority) ? list.filter(p => p !== priority) : [...list, priority],
+  )
+  await $.store.set(COLLAPSED_KEY, next)
+}
+
 const remove = async ($: Api, id: number) => {
   await save($, (await read($, issues)).filter(i => i.id !== id))
 }
@@ -286,6 +296,8 @@ export const register: Register = (on, options) => {
       await migrate($, repo.root)
     }
     const list = await load($)
+    const folded = (await $.store.get(COLLAPSED_KEY)) as Priority[] | undefined
+    await update($, collapsed, () => folded ?? [])
 
     await $.tool.register({
       name: 'note_issue',
@@ -507,24 +519,36 @@ export const register: Register = (on, options) => {
       </Box>
     )
 
+    const folded = await read($, collapsed)
+    const groups = PRIORITIES.map((priority, i) => ({ priority, items: list.filter(issue => rank(issue) === i) })).filter(
+      g => g.items.length > 0,
+    )
+    const open = groups.filter(g => !folded.includes(g.priority.value))
+    const shut = groups.filter(g => folded.includes(g.priority.value))
+
+    const group = ({ priority, items }: (typeof groups)[number]) => {
+      const isOpen = !folded.includes(priority.value)
+
+      return (
+        <Box key={`priority-${priority.value}`} flexDirection="column">
+          <Button key={`group-${priority.value}`} plain onPress={() => toggleGroup($, priority.value)}>
+            <Text color={priority.color} bold>
+              {isOpen ? '▾' : '▸'} {priority.label} {items.length}
+            </Text>
+          </Button>
+          {isOpen && items.map(card)}
+        </Box>
+      )
+    }
+
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" minHeight={e.props.scroll.bodyRows}>
         <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
         {list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
-        {PRIORITIES.map((priority, i) => {
-          const group = list.filter(issue => rank(issue) === i)
-
-          return (
-            group.length > 0 && (
-              <Box key={`priority-${priority.value}`} flexDirection="column">
-                <Text color={priority.color} bold>
-                  ● {priority.label} {group.length}
-                </Text>
-                {group.map(card)}
-              </Box>
-            )
-          )
-        })}
+        {open.map(group)}
+        {/* Folded groups sit at the bottom of the pane, below whatever space is left. */}
+        {shut.length > 0 && <Box flexGrow={1} />}
+        {shut.map(group)}
       </Box>
     )
   })

@@ -47,8 +47,11 @@ Call `resolve_issue` once such an issue is fixed.
 hidden while the list is empty, and any band another plugin draws there stays below it.
 
 **The "Noticed issues" pane** opens by itself when the list has something on it, and
-with `/issues`. Entries are grouped under **● High**, **● Medium** and **● Low**, each
-as a card with its number, title, file and detail, and these controls:
+with `/issues`. Entries are grouped under **▾ High**, **▾ Medium** and **▾ Low**. Press
+a group's heading to fold it (`▸ High 2`) or open it again: folded groups move to the
+bottom of the pane, and which ones are folded is remembered across sessions and
+projects. Each entry is a card with its number, title, file and detail, and these
+controls:
 
 - **▶ New session** starts `claude --bg` with a prompt to fix the issue that ends by
   asking it to call `resolve_issue`. The card then shows the session id, which

@@ -30,6 +30,8 @@ declare module 'claude-code' {
     'noticed-issues': {
       /** This project's open issues, mirrored from `$.store`. */
       issues: Issue[]
+      /** The priority groups folded in the pane, mirrored from `$.store` (`collapsed`). */
+      collapsed: Priority[]
     }
   }
 }
