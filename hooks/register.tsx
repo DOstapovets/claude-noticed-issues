@@ -1,9 +1,10 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { GithubStatus, Issue, Priority, Stored, Tab } from '../types'
+import type { GithubStatus, Issue, Priority, Tab } from '../types'
 import { MINUTE, session } from './context'
 import type { Api } from './context'
+import { change, COLLAPSED_KEY, load, migrate, save, toggleGroup } from './store'
 
 const PANE = 'noticed-issues'
 const TITLE = 'Noticed issues'
@@ -18,7 +19,6 @@ const GITHUB_MS = 5 * 60_000
 const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
 // The priority groups folded in the pane, the same in every project.
 const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
-const COLLAPSED_KEY = 'collapsed'
 // The pane's tab, for this session only.
 const tab = atom({ plugin: 'noticed-issues', key: 'tab' } as const, 'all')
 // The card whose ✕ asks to confirm, for this session only.
@@ -31,86 +31,11 @@ const AGE_MS = 10_000
 
 const count = (n: number) => (n === 1 ? '1 issue' : `${n} issues`)
 
-// Called only after `load`, which took the stored `nextId` up into this one: it never goes back.
-const save = async ($: Api, list: Issue[]) => {
-  await update($, issues, () => list)
-  const stored: Stored = { nextId: session.nextId, items: list }
-  await $.store.set(session.storeKey, stored)
-}
-
-const load = async ($: Api) => {
-  const stored = (await $.store.get(session.storeKey)) as Stored | undefined
-  session.nextId = Math.max(session.nextId, stored?.nextId ?? 1)
-  const list = Array.isArray(stored?.items) ? stored.items : []
-  await update($, issues, () => list)
-
-  return list
-}
-
-// Every change starts from the stored list, not the session's copy, which may be
-// up to RELOAD_MS behind another session's. `$.store` has no compare-and-set
-// (only get, set, delete and keys), so two sessions writing in the same moment
-// can still lose one change; that window is accepted.
-const change = async ($: Api, fn: (list: Issue[]) => Issue[]) => save($, fn(await load($)))
-
 // `auto` asks the `origin` remote: ssh (`git@github.com:o/r.git`, `ssh://…`) or https.
 const onGithub = (remote: string | null | undefined) => {
   const host = remote?.match(/^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?([^:/]+)/i)?.[1]
 
   return host !== undefined && /(^|\.)github\.com$/i.test(host)
-}
-
-const commonDir = async ($: Api, dir: string) => {
-  const ran = await $.process
-    .run(['git', '-C', dir, 'rev-parse', '--path-format=absolute', '--git-common-dir'])
-    .catch(() => undefined)
-
-  return ran === undefined ? undefined : ran.exitCode === 0 ? ran.stdout.trim() : null
-}
-
-// Up to 0.4 the list was kept per working directory, so each worktree of a
-// repository, and each subdirectory a session started in, had one of its own.
-// Fold those into the repository's list, renumbered after it; a title already
-// on it is dropped. A repository of its own nested inside keeps its list.
-const migrate = async ($: Api, root: string) => {
-  const nested = (await $.store.keys()).filter(key => key.startsWith(`${session.storeKey}/`))
-  const repoGit = nested.length > 0 ? await commonDir($, root) : undefined
-
-  if (!repoGit) {
-    return
-  }
-
-  const stored = (await $.store.get(session.storeKey)) as Stored | undefined
-  const items = [...(stored?.items ?? [])]
-  let next = stored?.nextId ?? 1
-  const folded: string[] = []
-
-  for (const key of nested) {
-    // null: the directory is gone (a removed worktree), so its list has no other home.
-    const git = await commonDir($, key.slice('issues:'.length))
-
-    if (git === undefined || (git !== null && git !== repoGit)) {
-      continue
-    }
-
-    for (const issue of ((await $.store.get(key)) as Stored | undefined)?.items ?? []) {
-      if (!items.some(i => i.title.toLowerCase() === issue.title.toLowerCase())) {
-        items.push({ ...issue, id: next })
-        next += 1
-      }
-    }
-    folded.push(key)
-  }
-
-  if (folded.length === 0) {
-    return
-  }
-
-  const merged: Stored = { nextId: next, items }
-  await $.store.set(session.storeKey, merged)
-  for (const key of folded) {
-    await $.store.delete(key)
-  }
 }
 
 const openPane = ($: Api) => $.ui.open({ id: PANE, title: TITLE })
@@ -396,13 +321,6 @@ const arrange = (
 
 // The first card a group shows, scrolled no further than its last full view.
 const firstCard = (at: number | undefined, lastFirst: number) => Math.max(0, Math.min(at ?? 0, lastFirst))
-
-const toggleGroup = async ($: Api, priority: Priority) => {
-  const next = await update($, collapsed, list =>
-    list.includes(priority) ? list.filter(p => p !== priority) : [...list, priority],
-  )
-  await $.store.set(COLLAPSED_KEY, next)
-}
 
 // A detail longer than this many card lines is cut; the GitHub issue keeps it whole.
 const DETAIL_LINES = 3
