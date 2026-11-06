@@ -12,7 +12,8 @@ describes what the user sees; this file is for working on the code.
 ## Stack
 
 There is no build, no `package.json` and no dependencies. The plugin is one hooks
-module that Claude Code loads as it is:
+module, `hooks/register.tsx`, and the files it imports, which Claude Code loads as
+they are:
 
 - **Language:** TypeScript with JSX, compiled by the engine against its global `h`
 - **API:** the `claude-code` plugin API: hooks registered with `on(event, matcher?, hook)`, and the
@@ -21,14 +22,36 @@ module that Claude Code loads as it is:
 - **Environment:** the module runs with no DOM and no Node. `gh`, `git` and `claude --bg`
   are reached through `$.process.run`
 
+### Splitting into modules
+
+The engine reads the module before it runs it, and its scan follows an import only
+so far. Three rules keep code in another file visible to it:
+
+1. A `$.state` atom cannot be imported. Each module that reads or updates one
+   declares it itself, with the same ref and initial value; `types/index.d.ts`
+   declares its type once.
+2. A function that takes `$` and is called from another file is a `function`
+   declaration, not an arrow const, and the call passes it as `$`.
+3. The matcher constants of `on()`, such as the pane's `requestId`, stay in the
+   file that calls `on()`.
+
+Break one and the module fails to load, or `claude plugin validate .` shows the
+state or the matcher as `?`.
+
 ## Layout
 
 ```
 .claude-plugin/plugin.json       Manifest: name, version, userConfig (`github`), types
 .claude-plugin/marketplace.json  Lets the repository be added as a marketplace of its own
-hooks/hooks.json                 Names the hooks module
-hooks/register.tsx               The whole plugin: tools, /issues, the count, the pane, GitHub
-hooks/register.test.tsx          Tests, with gh, git and claude --bg stubbed
+hooks/hooks.json                 Names the hooks module, hooks/register.tsx
+hooks/register.tsx               Wiring: session.start, the tools, /issues, the ui hooks
+hooks/context.ts                 What the modules share for the session (`session`), Api, MINUTE
+hooks/store.ts                   The list and the folded groups in $.store: load, save, change, migrate
+hooks/layout.ts                  Pure layout and card text: arrange, cardRows, age, clip, LIMITS
+hooks/github.ts                  GitHub issues through gh: filing one, reading its status
+hooks/sessions.ts                Background sessions through claude --bg: a fix, Feedback
+hooks/pane.tsx                   The pane: groups, cards, tabs, scrolling
+hooks/*.test.ts(x)               Tests; register.test.tsx stubs gh, git and claude --bg
 types/index.d.ts                 Issue, Priority, Tab, GithubStatus, Stored and the $.state contract
 docs/                            Conventions for contributors and agents
 .claude/settings.json            Project hooks; their scripts are in .claude/hooks/
@@ -42,7 +65,7 @@ Run all three before every commit, from the repository root:
 
 ```sh
 claude plugin validate .   # manifest and module, read the way the engine reads them
-claude plugin test .       # hooks/register.test.tsx
+claude plugin test .       # hooks/*.test.ts(x)
 ```
 
 Then type-check with `tsc`. The plugin API's declarations are not in the
