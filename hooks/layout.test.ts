@@ -2,7 +2,7 @@ import { expect, test } from 'claude-code/testing'
 
 import type { Issue, Priority } from '../types'
 import { MINUTE } from './context'
-import { age, arrange, cardColumnsOf, cardRows, DETAIL_LINES, headRows, share, wrappedRows } from './layout'
+import { age, arrange, cardColumnsOf, cardRows, DETAIL_LINES, headRows, projectName, share, wrappedRows } from './layout'
 
 // Local time, as `age` reads it.
 const NOW = new Date(2026, 10, 6, 12, 0).getTime()
@@ -127,4 +127,20 @@ test('a pane too short for every heading still gives each group its row', () => 
   expect(groups.map(g => g.rows)).toEqual([1, 1, 1])
   // The last heading falls past the pane's sixth row.
   expect(groups[2]!.top).toBe(8)
+})
+
+test('a project is named owner/repo from its remote, else after its directory', () => {
+  expect(projectName('/w/r', 'git@github.com:o/r.git')).toBe('o/r')
+  expect(projectName('/w/r', 'https://gitlab.example.com/group/sub/r')).toBe('sub/r')
+  expect(projectName('/Users/me/scratch')).toBe('scratch')
+  expect(projectName('/')).toBe('/')
+})
+
+test('a read-only card has no row of controls and only its age in the corner', () => {
+  // `#1 ` and 26 characters. At 40 columns the corner `just now  ✕ ` leaves 27 for
+  // the heading, which wraps it; `just now` alone leaves 31, which hold it.
+  const long = issue({ title: 'abcdefghij abcdefghij abcd' })
+  expect(cardRows(long, 40, false, NOW)).toBe(2 + 4)
+  expect(cardRows(long, 40, false, NOW, true)).toBe(1 + 3)
+  expect(headRows(true, true)).toBe(6)
 })

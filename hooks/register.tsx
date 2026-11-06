@@ -8,7 +8,7 @@ import { onGithub, refreshGithub } from './github'
 import { arrange, cardColumnsOf, clip, count, firstCard, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
 import { startFeedback, whereRun } from './sessions'
-import { change, COLLAPSED_KEY, load, migrate, save } from './store'
+import { change, COLLAPSED_KEY, load, loadProjects, migrate, save } from './store'
 
 const PANE = 'noticed-issues'
 const TITLE = 'Noticed issues'
@@ -43,6 +43,7 @@ export const register: Register = (on, options) => {
     // tree's root names it. Outside a repository the directory does.
     const repo = await $.session.repo()
     session.storeKey = `issues:${repo?.root ?? session.cwd}`
+    session.remote = repo?.remote ?? undefined
     session.github = options.github === 'on' || (options.github !== 'off' && onGithub(repo?.remote))
     session.nextId = 1
 
@@ -50,6 +51,7 @@ export const register: Register = (on, options) => {
       await migrate($, repo.root)
     }
     const list = await load($)
+    await loadProjects($)
     const folded = (await $.store.get(COLLAPSED_KEY)) as Priority[] | undefined
     await update($, collapsed, () => folded ?? [])
 
@@ -99,7 +101,7 @@ export const register: Register = (on, options) => {
     }
     await tick()
     $.clock.every(AGE_MS, () => void tick())
-    $.clock.every(RELOAD_MS, () => void load($))
+    $.clock.every(RELOAD_MS, () => void load($).then(() => loadProjects($)))
     $.clock.every(GITHUB_MS, () => void refreshGithub($))
     void refreshGithub($)
 
@@ -238,21 +240,24 @@ export const register: Register = (on, options) => {
 
   // The wheel, or the scroll keys, move the open group under the pointer (the
   // first open one for the keys) a card at a time; the pane itself stays put.
-  // Elsewhere (VS Code, desktop, mobile) the groups flow and the pane scrolls whole.
+  // Elsewhere (VS Code, desktop, mobile), and on the list of projects, the groups
+  // flow and the pane scrolls whole.
   on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
-    if (!session.paneOnTerminal) {
+    const { hasTabs, current, opened, shown } = await view($)
+
+    if (!session.paneOnTerminal || (current === 'projects' && !opened)) {
       return next(e)
     }
 
-    const { mine, shown } = await view($)
     const open = arrange(
       shown,
       await read($, collapsed),
-      headRows(mine.length > 0),
+      headRows(hasTabs, opened !== undefined),
       e.bodyRows,
       cardColumnsOf(session.paneColumns),
-      await read($, deleting),
+      opened ? null : await read($, deleting),
       await read($, minute),
+      opened !== undefined,
     ).filter(g => g.isOpen)
     const row = e.pointer?.row
     const target = row === undefined ? open[0] : open.find(g => row >= g.top && row < g.top + g.rows)

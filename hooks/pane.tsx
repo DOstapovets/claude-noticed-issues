@@ -1,13 +1,13 @@
 import { atom, read, update } from 'claude-code'
 import type { Frozen, MatchedEvent } from 'claude-code'
 
-import type { Issue, Priority, Tab } from '../types'
+import type { Issue, Priority, Project, Tab } from '../types'
 import { session } from './context'
 import type { Api } from './context'
 import { createGithubIssue } from './github'
-import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, headRows, PRIORITIES, rank } from './layout'
+import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, headRows, PRIORITIES, projectName, rank } from './layout'
 import { startFeedback, startSession, whereRun } from './sessions'
-import { change, toggleGroup } from './store'
+import { change, loadProjects, toggleGroup } from './store'
 
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads or writes it, so this module names the atoms it uses; types/index.d.ts
@@ -17,6 +17,9 @@ const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
 const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
 // The pane's tab, for this session only.
 const tab = atom({ plugin: 'noticed-issues', key: 'tab' } as const, 'all')
+// Every other project's list, and the one open on the Projects tab, for this session only.
+const projects = atom({ plugin: 'noticed-issues', key: 'projects' } as const, [])
+const project = atom({ plugin: 'noticed-issues', key: 'project' } as const, null)
 // The card whose ✕ asks to confirm, for this session only.
 const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, null)
 // Where each open group is scrolled to, for this session only.
@@ -58,15 +61,39 @@ async function shiftPriority($: Api, id: number, step: -1 | 1) {
   )
 }
 
-// What the pane lists: every issue, or this session's on its tab, offered
-// only while this session has noted something.
+// What the pane lists: every issue, this session's on its tab, offered only
+// while this session has noted something, or on the Projects tab, offered while
+// another project has a list, the issues of the project open there.
 export async function view($: Api) {
   const list = await read($, issues)
+  const others = await read($, projects)
   const sessionId = await $.session.id()
   const mine = list.filter(issue => issue.noticedIn === sessionId)
-  const current: Tab = mine.length > 0 ? await read($, tab) : 'all'
+  const chosen = await read($, tab)
+  const current: Tab =
+    (chosen === 'session' && mine.length === 0) || (chosen === 'projects' && others.length === 0) ? 'all' : chosen
+  const root = await read($, project)
+  const opened = current === 'projects' ? others.find(p => p.root === root) : undefined
+  const shown = current === 'session' ? mine : current === 'projects' ? (opened?.items ?? []) : list
 
-  return { list, mine, current, shown: current === 'session' ? mine : list }
+  return { list, mine, others, hasTabs: mine.length > 0 || others.length > 0, current, opened, shown }
+}
+
+// Each tab, and each project opened on the Projects tab, starts at the top of its groups.
+async function chooseTab($: Api, value: Tab) {
+  if (value === 'projects' || (await read($, tab)) === 'projects') {
+    await update($, scrolled, () => ({}))
+  }
+  if (value === 'projects') {
+    await loadProjects($)
+    await update($, project, () => null)
+  }
+  await update($, tab, () => value)
+}
+
+async function openProject($: Api, root: string | null) {
+  await update($, scrolled, () => ({}))
+  await update($, project, () => root)
 }
 
 // Off the terminal, a card's padding above and below and the room between its
@@ -103,15 +130,23 @@ export async function renderPane($: Api, e: PaneRender) {
   const space = e.surface === 'vscode' ? VSCODE_SPACE : undefined
   const quietArrows = colorlessButtons ? { dimColor: true } : {}
   const cardColumns = cardColumnsOf(e.props.bodyColumns)
-  const confirming = await read($, deleting)
   const now = await read($, minute)
+  // The session tab is offered only while this session has noted something, the
+  // Projects tab while another project has a list; there a project's cards are read only.
+  const { mine, others, hasTabs, current, opened, shown } = await view($)
+  const readOnly = opened !== undefined
+  const confirming = readOnly ? null : await read($, deleting)
 
   // The card's top right corner: when it was noted, and a red ✕, which asks once before it deletes.
   // VS Code draws its Buttons as framed chips, which a space does not part from the
   // text beside them: there the corner's parts are a character apart.
   const cornerRow = space ? { columnGap: 1, alignItems: 'center' as const } : {}
   const corner = (issue: Issue) =>
-    confirming === issue.id ? (
+    readOnly ? (
+      <Box flexShrink={0} marginLeft={1}>
+        <Text dimColor>{age(issue.createdAt, now)}</Text>
+      </Box>
+    ) : confirming === issue.id ? (
       <Box flexShrink={0} marginLeft={1} {...cornerRow}>
         <Text color="error">Delete?</Text>
         <Button key={`confirm-delete-${issue.id}`} plain onPress={() => confirmRemove($, issue.id)}>
@@ -193,52 +228,51 @@ export async function renderPane($: Api, e: PaneRender) {
           {clipRows(issue.detail, cardColumns, DETAIL_LINES)}
         </Text>
       )}
-      <Box justifyContent="space-between">
-        <Box gap={2}>
-          {issue.sessionId ? (
-            <Text color="cyan">▶ {issue.sessionId}</Text>
-          ) : (
-            <Button
-              key={`session-${issue.id}`}
-              label="▶ New session"
-              variant="primary"
-              onPress={() => startSession($, issue.id)}
-            />
-          )}
-          {session.github && !issue.githubUrl && (
-            <Button
-              key={`github-${issue.id}`}
-              label="↗ GitHub issue"
-              onPress={() => createGithubIssue($, issue.id)}
-            />
-          )}
+      {!readOnly && (
+        <Box justifyContent="space-between">
+          <Box gap={2}>
+            {issue.sessionId ? (
+              <Text color="cyan">▶ {issue.sessionId}</Text>
+            ) : (
+              <Button
+                key={`session-${issue.id}`}
+                label="▶ New session"
+                variant="primary"
+                onPress={() => startSession($, issue.id)}
+              />
+            )}
+            {session.github && !issue.githubUrl && (
+              <Button
+                key={`github-${issue.id}`}
+                label="↗ GitHub issue"
+                onPress={() => createGithubIssue($, issue.id)}
+              />
+            )}
+          </Box>
+          {/* At the right edge, shown while the pointer is over the card: each arrow in the
+              color of the group it moves the issue to, padded with a space a side so it is
+              easier to hit. Hidden, it keeps no room, and shown it takes none from the row.
+              Where no hover is drawn, always shown. */}
+          <Box gap={2} {...(hovers ? { display: 'none' as const, hover: { display: 'flex' as const } } : {})}>
+            {rank(issue) > 0 && (
+              <Button key={`raise-${issue.id}`} plain {...quietArrows} onPress={() => shiftPriority($, issue.id, -1)}>
+                <Text color={PRIORITIES[rank(issue) - 1]!.color} bold>
+                  {' ▲ '}
+                </Text>
+              </Button>
+            )}
+            {rank(issue) < PRIORITIES.length - 1 && (
+              <Button key={`lower-${issue.id}`} plain {...quietArrows} onPress={() => shiftPriority($, issue.id, 1)}>
+                <Text color={PRIORITIES[rank(issue) + 1]!.color} bold>
+                  {' ▼ '}
+                </Text>
+              </Button>
+            )}
+          </Box>
         </Box>
-        {/* At the right edge, shown while the pointer is over the card: each arrow in the
-            color of the group it moves the issue to, padded with a space a side so it is
-            easier to hit. Hidden, it keeps no room, and shown it takes none from the row.
-            Where no hover is drawn, always shown. */}
-        <Box gap={2} {...(hovers ? { display: 'none' as const, hover: { display: 'flex' as const } } : {})}>
-          {rank(issue) > 0 && (
-            <Button key={`raise-${issue.id}`} plain {...quietArrows} onPress={() => shiftPriority($, issue.id, -1)}>
-              <Text color={PRIORITIES[rank(issue) - 1]!.color} bold>
-                {' ▲ '}
-              </Text>
-            </Button>
-          )}
-          {rank(issue) < PRIORITIES.length - 1 && (
-            <Button key={`lower-${issue.id}`} plain {...quietArrows} onPress={() => shiftPriority($, issue.id, 1)}>
-              <Text color={PRIORITIES[rank(issue) + 1]!.color} bold>
-                {' ▼ '}
-              </Text>
-            </Button>
-          )}
-        </Box>
-      </Box>
+      )}
     </Box>
   )
-
-  // The session tab is offered only while this session has noted something.
-  const { mine, current, shown } = await view($)
 
   // The current tab is filled with the accent color, the other drawn in it on the pane's background.
   // VS Code fills every Button alike: there the current tab keeps the fill and the other is dim.
@@ -249,10 +283,10 @@ export async function renderPane($: Api, e: PaneRender) {
         plain
         label={label}
         {...(current === value ? {} : { dimColor: true })}
-        onPress={() => update($, tab, () => value)}
+        onPress={() => chooseTab($, value)}
       />
     ) : (
-      <Button key={`tab-${value}`} plain onPress={() => update($, tab, () => value)}>
+      <Button key={`tab-${value}`} plain onPress={() => chooseTab($, value)}>
         {current === value ? (
           <Text backgroundColor="claude" color="inverseText" bold>
             {` ${label} `}
@@ -276,13 +310,67 @@ export async function renderPane($: Api, e: PaneRender) {
   )
   const tabs = (
     <Box gap={1}>
-      {tabButton('session', `This session ${mine.length}`)}
+      {mine.length > 0 && tabButton('session', `This session ${mine.length}`)}
       {tabButton('all', `All ${list.length}`)}
+      {others.length > 0 && tabButton('projects', `Projects ${others.length}`)}
     </Box>
   )
 
+  // One row per project: its name and directory, then how many issues of each
+  // priority it has, in their groups' colors, and when its list last changed.
+  // A project with none is dim and comes last.
+  const projectRow = (p: Project) => {
+    const empty = p.items.length === 0
+
+    return (
+      <Box key={`project-${p.root}`} justifyContent="space-between" flexShrink={0}>
+        <Box flexGrow={1} flexShrink={1}>
+          <Button key={`open-${p.root}`} plain onPress={() => openProject($, p.root)}>
+            <Text wrap="truncate-end" {...(empty ? { dimColor: true } : {})}>
+              <Text bold={!empty}>{projectName(p.root, p.remote)}</Text> <Text dimColor>{p.root}</Text>
+            </Text>
+          </Button>
+        </Box>
+        <Box flexShrink={0} marginLeft={1} gap={1}>
+          {empty ? (
+            <Text dimColor>no issues</Text>
+          ) : (
+            PRIORITIES.map((priority, i) => {
+              const n = p.items.filter(issue => rank(issue) === i).length
+              const color = colorlessButtons ? VSCODE_COLORS[priority.value] : priority.color
+              return (
+                n > 0 && (
+                  <Text key={`count-${p.root}-${priority.value}`} color={color}>
+                    ● {n}
+                  </Text>
+                )
+              )
+            })
+          )}
+          {p.updatedAt !== undefined && <Text dimColor>{age(p.updatedAt, now)}</Text>}
+        </Box>
+      </Box>
+    )
+  }
+
+  // Above another project's groups: the way back to every project, then which one this is.
+  const back = opened && (
+    <Box key="project-head" marginBottom={1} gap={1}>
+      <Box flexShrink={0}>
+        <Button key="projects-back" plain label="← Projects" onPress={() => openProject($, null)} />
+      </Box>
+      <Box flexShrink={0}>
+        <Text bold>{projectName(opened.root, opened.remote)}</Text>
+      </Box>
+      <Text dimColor wrap="truncate-middle">
+        {opened.root}
+      </Text>
+    </Box>
+  )
+  const listsProjects = current === 'projects' && !opened
+
   const bodyRows = e.props.scroll.bodyRows
-  const groups = arrange(shown, await read($, collapsed), headRows(mine.length > 0), bodyRows, cardColumns, confirming, now)
+  const groups = arrange(shown, await read($, collapsed), headRows(hasTabs, readOnly), bodyRows, cardColumns, confirming, now, readOnly)
   const at = await read($, scrolled)
 
   const group = ({ priority, items, isOpen, rows, lastFirst }: (typeof groups)[number], index: number) => {
@@ -329,11 +417,11 @@ export async function renderPane($: Api, e: PaneRender) {
   }
 
   return (
-    <Box flexDirection="column" {...(fitsRows ? { height: bodyRows, overflow: 'hidden' as const } : {})}>
+    <Box flexDirection="column" {...(fitsRows && !listsProjects ? { height: bodyRows, overflow: 'hidden' as const } : {})}>
       {titled ? (
         // VS Code heads the pane with its title already: there Feedback joins the tabs' row.
         <Box justifyContent="space-between" marginBottom={1}>
-          {mine.length > 0 ? tabs : <Box />}
+          {hasTabs ? tabs : <Box />}
           {feedback}
         </Box>
       ) : (
@@ -342,10 +430,12 @@ export async function renderPane($: Api, e: PaneRender) {
             <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
             {feedback}
           </Box>
-          {mine.length > 0 && <Box marginBottom={1}>{tabs}</Box>}
+          {hasTabs && <Box marginBottom={1}>{tabs}</Box>}
         </>
       )}
-      {list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
+      {current !== 'projects' && list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
+      {listsProjects && others.map(projectRow)}
+      {back}
       {/* A folded group keeps its place in the priority order. */}
       {groups.map(group)}
     </Box>

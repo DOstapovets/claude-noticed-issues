@@ -1,6 +1,6 @@
 import { atom, update } from 'claude-code'
 
-import type { Issue, Priority, Stored } from '../types'
+import type { Issue, Priority, Project, Stored } from '../types'
 import { session } from './context'
 import type { Api } from './context'
 
@@ -11,6 +11,8 @@ const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
 // The priority groups folded in the pane, the same in every project.
 const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
 export const COLLAPSED_KEY = 'collapsed'
+// Every other project's list, for the pane's Projects tab.
+const projects = atom({ plugin: 'noticed-issues', key: 'projects' } as const, [])
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.
@@ -18,7 +20,12 @@ export const COLLAPSED_KEY = 'collapsed'
 // Called only after `load`, which took the stored `nextId` up into this one: it never goes back.
 export async function save($: Api, list: Issue[]) {
   await update($, issues, () => list)
-  const stored: Stored = { nextId: session.nextId, items: list }
+  const stored: Stored = {
+    nextId: session.nextId,
+    items: list,
+    ...(session.remote ? { remote: session.remote } : {}),
+    updatedAt: await $.clock.now(),
+  }
   await $.store.set(session.storeKey, stored)
 }
 
@@ -37,6 +44,33 @@ export async function load($: Api) {
 // can still lose one change; that window is accepted.
 export async function change($: Api, fn: (list: Issue[]) => Issue[]) {
   return save($, fn(await load($)))
+}
+
+// Each list in the store but this project's: those with issues first, then the
+// most recently changed. A list kept per worktree before 0.4 shows as one of its
+// own until a session in its repository folds it in.
+export async function loadProjects($: Api) {
+  const found: Project[] = []
+
+  for (const key of await $.store.keys()) {
+    if (!key.startsWith('issues:') || key === session.storeKey) continue
+    const stored = (await $.store.get(key)) as Stored | undefined
+    found.push({
+      root: key.slice('issues:'.length),
+      ...(typeof stored?.remote === 'string' ? { remote: stored.remote } : {}),
+      ...(typeof stored?.updatedAt === 'number' ? { updatedAt: stored.updatedAt } : {}),
+      items: Array.isArray(stored?.items) ? stored.items : [],
+    })
+  }
+  found.sort(
+    (a, b) =>
+      Number(b.items.length > 0) - Number(a.items.length > 0) ||
+      (b.updatedAt ?? 0) - (a.updatedAt ?? 0) ||
+      a.root.localeCompare(b.root),
+  )
+  await update($, projects, () => found)
+
+  return found
 }
 
 async function commonDir($: Api, dir: string) {

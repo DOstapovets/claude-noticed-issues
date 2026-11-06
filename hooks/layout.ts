@@ -13,8 +13,9 @@ export const PRIORITIES = [
 // An issue noted before priorities existed, or without one, is medium.
 export const rank = (issue: Issue) => PRIORITIES.findIndex(p => p.value === (issue.priority ?? 'medium'))
 
-// Rows above the groups: the pane's heading and a blank row, then the tabs and another.
-export const headRows = (hasTabs: boolean) => (hasTabs ? 4 : 2)
+// Rows above the groups: the pane's heading and a blank row, then the tabs and another,
+// then, for another project's list, the row that leads back to every project and another.
+export const headRows = (hasTabs: boolean, hasBack = false) => (hasTabs ? 4 : 2) + (hasBack ? 2 : 0)
 
 // Splits `free` rows between groups that need `needs` rows each: one that
 // needs no more than an even share gets what it needs, and the rows it leaves
@@ -61,6 +62,7 @@ export const arrange = (
   columns: number,
   confirming: number | null,
   now: number,
+  readOnly = false,
 ) => {
   const groups = PRIORITIES.map((priority, i) => ({
     priority,
@@ -68,7 +70,7 @@ export const arrange = (
     items: shown.filter(issue => rank(issue) === i).sort((a, b) => b.createdAt - a.createdAt || b.id - a.id),
     isOpen: !folded.includes(priority.value),
   })).filter(g => g.items.length > 0)
-  const heights = groups.map(g => g.items.map(issue => cardRows(issue, columns, issue.id === confirming, now)))
+  const heights = groups.map(g => g.items.map(issue => cardRows(issue, columns, issue.id === confirming, now, readOnly)))
   const open = groups.flatMap((g, i) => (g.isOpen ? [i] : []))
   // Less a heading's row for each folded group and a blank row between groups.
   const free = Math.max(0, bodyRows - top - (groups.length - open.length) - Math.max(0, groups.length - 1))
@@ -131,16 +133,22 @@ export const clipRows = (value: string, width: number, rows: number) => {
 }
 
 // The rows a card takes with `columns` inside its border. A plugin cannot
-// measure what it drew, so a group's rows are worked out from these.
-export const cardRows = (issue: Issue, columns: number, isConfirming: boolean, now: number) => {
-  // The corner beside the heading, and a column before it: `5m ago  ✕ `, or `Delete? ✓ ↩ `.
-  const head = Math.max(1, columns - (isConfirming ? 14 : 5 + age(issue.createdAt, now).length))
+// measure what it drew, so a group's rows are worked out from these. Another
+// project's card is read only: no ✕ in its corner and no row of controls.
+export const cardRows = (issue: Issue, columns: number, isConfirming: boolean, now: number, readOnly = false) => {
+  // The corner beside the heading, and a column before it: `5m ago  ✕ `, `Delete? ✓ ↩ ` or `5m ago`.
+  const corner = readOnly ? 1 + age(issue.createdAt, now).length : isConfirming ? 14 : 5 + age(issue.createdAt, now).length
+  const head = Math.max(1, columns - corner)
   const title = issue.githubUrl ? 1 + wrappedRows(issue.title, head) : wrappedRows(`#${issue.id} ${issue.title}`, head)
   const detail = issue.detail ? wrappedRows(clipRows(issue.detail, columns, DETAIL_LINES), columns) : 0
 
   // With the border's two rows, the controls' row and the blank row below the card.
-  return title + (issue.file ? 1 : 0) + detail + 4
+  return title + (issue.file ? 1 : 0) + detail + (readOnly ? 3 : 4)
 }
+
+// A project's name: `owner/repo` from its remote, else its directory's.
+export const projectName = (root: string, remote?: string) =>
+  remote?.replace(/\.git$/, '').match(/([^/:]+\/[^/:]+)$/)?.[1] ?? root.split('/').filter(Boolean).pop() ?? root
 
 const two = (n: number) => String(n).padStart(2, '0')
 

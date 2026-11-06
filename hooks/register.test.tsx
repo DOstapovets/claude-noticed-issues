@@ -609,6 +609,80 @@ test('tabs show every issue or only those this session noted, once it has noted 
   await other.unmount()
 })
 
+test('a list keeps its repository\'s remote and when it last changed', async ($, on) => {
+  const seen = engine(on)
+  seen.repo = '/repo'
+  seen.remote = 'git@github.com:o/r.git'
+  await $.session.start(start('/repo'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+
+  expect(seen.store.get('issues:/repo')).toMatchObject({ remote: 'git@github.com:o/r.git', updatedAt: 1_000 })
+})
+
+test('the Projects tab lists the other projects and opens one read only', async ($, on) => {
+  const seen = engine(on, {
+    'issues:/proj/a': { nextId: 2, items: [{ id: 1, title: 'Here', createdAt: 1 }] },
+    'issues:/proj/c': { nextId: 2, items: [], updatedAt: 900 },
+    'issues:/proj/b': {
+      nextId: 3,
+      remote: 'git@github.com:o/b.git',
+      updatedAt: 500,
+      items: [
+        { id: 1, title: 'Leak in b', createdAt: 1, priority: 'high' },
+        { id: 2, title: 'Doc in b', createdAt: 2 },
+      ],
+    },
+    collapsed: [],
+  })
+  await $.session.start(start('/proj/a'))
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ key: 'tab-session' })).toBeUndefined()
+  expect((await ui.find({ key: 'tab-projects' }))?.text.trim()).toBe('Projects 2')
+  expect(await lines(ui)).toEqual(['▾ Medium 1', '#1 Here'])
+
+  // Those with issues first, named from the remote where there is one; this project is not among them.
+  await ui.press({ key: 'tab-projects' })
+  const rows = async () => (await ui.findAll({})).flatMap(el => (el.key?.startsWith('project-/') ? [el.text] : []))
+  expect(await rows()).toEqual([
+    expect.stringMatching(/^o\/b \/proj\/b● 1● 1just now$/),
+    expect.stringMatching(/^c \/proj\/c.*no issues.*just now$/),
+  ])
+  expect(await lines(ui)).toEqual([])
+  // The list of projects is not cut to the pane's rows: the pane scrolls it whole.
+  expect((await ui.findAll({})).find(el => el.type === 'Box')?.props.height).toBeUndefined()
+
+  // Its cards have no controls: only when each was noted.
+  await ui.press({ key: 'open-/proj/b' })
+  expect(await lines(ui)).toEqual(['▾ High 1', '#1 Leak in b', '▾ Medium 1', '#2 Doc in b'])
+  expect((await ui.find({ key: 'project-head' }))?.text).toMatch(/← Projects.*o\/b.*\/proj\/b/)
+  for (const key of ['delete-1', 'session-1', 'raise-2', 'lower-1']) expect(await ui.find({ key })).toBeUndefined()
+  // Its title, and the border's two rows and the blank row below: no row of controls.
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(5)
+
+  await ui.press({ key: 'projects-back' })
+  expect(await rows()).toHaveLength(2)
+  await ui.press({ key: 'tab-all' })
+  expect(await lines(ui)).toEqual(['▾ Medium 1', '#1 Here'])
+
+  // Another session's change shows when the tab is opened again.
+  seen.store.set('issues:/proj/c', { nextId: 2, items: [{ id: 1, title: 'New in c', createdAt: 950 }], updatedAt: 950 })
+  await ui.press({ key: 'tab-projects' })
+  expect((await rows())[0]).toMatch(/^c \/proj\/c.*● 1/)
+  await ui.unmount()
+
+  // Off the terminal the same rows lead to the same read-only cards.
+  for (const surface of ['desktop', 'vscode', 'mobile'] as const) {
+    const other = await $.ui.mount({ ...PANE, surface })
+    expect(await other.find({ key: 'open-/proj/b' })).toBeDefined()
+    await other.press({ key: 'open-/proj/b' })
+    expect((await lines(other)).filter(line => line.startsWith('#'))).toEqual(['#1 Leak in b', '#2 Doc in b'])
+    expect(await other.find({ key: 'delete-1' })).toBeUndefined()
+    await other.press({ key: 'projects-back' })
+    await other.unmount()
+  }
+})
+
 test('each open group scrolls its cards under a heading that stays put', async ($, on) => {
   engine(on)
   await $.session.start(start('/proj/a'))

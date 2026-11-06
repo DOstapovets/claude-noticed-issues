@@ -9,6 +9,8 @@ export const session = {
   cwd: '',
   storeKey: '',
   nextId: 1,
+  // The repository's `origin`, kept with the list so the Projects tab of another project can name it.
+  remote: undefined as string | undefined,
   // Whether this session offers GitHub issues and reads their status.
   github: false,
   // The pane's width as last drawn: `ui.scroll` does not carry it.

@@ -79,6 +79,17 @@ three lines. These are its controls:
 - **▲ / ▼**, at the card's right edge while the pointer is over the card, move it one
   priority up or down; each is drawn in the color of the group it moves the issue to.
 
+**Other projects.** Once another project has a list too, a **Projects 2** tab follows
+**All**, also when this project's list is empty (open the pane with `/issues`). It
+lists every other project the plugin has kept a list for, one row each: its name
+(`owner/repo` from its `origin` remote, else its directory's name), its directory, how many entries
+it has in each priority, in the groups' colors (`● 2 ● 1`), and when its list last
+changed. Projects with no entries left come last, dimmed, as `no issues`. Press a
+project to see its entries in the same groups and cards, read only: no **▶**, **↗**,
+**✕** or **▲ / ▼**; open a session in that project to act on them. **← Projects**
+leads back to the list. The list is read again each time the tab is pressed and
+every 30 seconds.
+
 **Outside the terminal** (VS Code, the desktop app, the mobile app) each group takes
 the height its cards need and the pane scrolls as a whole, with a little more room
 inside each card. Where nothing is drawn on hover (VS Code, the mobile app), ▲ / ▼
@@ -141,6 +152,11 @@ nested inside it has its own. Outside a repository, the session's directory is t
 Lists that versions before 0.4 kept per worktree are folded into the repository's list
 on first start.
 
+Each list also keeps the repository's `origin` remote and when it last changed,
+written with every change from 0.22 on, so the Projects tab of another project can
+name it and tell its age. A list from an earlier version shows only its directory
+until it next changes.
+
 Open sessions of the same project pick up each other's changes every 30 seconds.
 
 ## Development
@@ -155,7 +171,7 @@ claude --plugin-dir .         # a session with this checkout loaded
 | --- | --- |
 | `hooks/register.tsx` | The hooks module: tools, `/issues`, the count, and the files it imports for the store, GitHub, background sessions, layout and the pane (listed in [AGENTS.md](./AGENTS.md#layout)). |
 | `hooks/*.test.ts(x)` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
-| `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus` and `Stored` types and the `$.state` contract. |
+| `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus`, `Stored` and `Project` types and the `$.state` contract. |
 
 How to work on it, for people and agents alike, is in [AGENTS.md](./AGENTS.md); branch,
 commit, version and PR conventions in [docs/git_and_pr_conventions.md](./docs/git_and_pr_conventions.md).
