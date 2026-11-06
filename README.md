@@ -147,6 +147,9 @@ claude --plugin-dir .         # a session with this checkout loaded
 | `hooks/register.test.tsx` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
 | `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus` and `Stored` types and the `$.state` contract. |
 
+How to work on it, for people and agents alike, is in [AGENTS.md](./AGENTS.md); branch,
+commit, version and PR conventions in [docs/git_and_pr_conventions.md](./docs/git_and_pr_conventions.md).
+
 ## Feedback
 
 Found a bug or want something changed? Press **✎ Feedback** in the pane, or

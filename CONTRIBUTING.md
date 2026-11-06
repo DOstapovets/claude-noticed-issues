@@ -27,3 +27,8 @@ Both must pass. Keep the change focused, add or update a test in
 `hooks/register.test.tsx` for what it changes, and update the README where behaviour
 changes. By contributing you agree that your contribution is licensed under the
 [MIT License](./LICENSE).
+
+Branch names, commit messages, versioning and what a pull request should say are in
+[docs/git_and_pr_conventions.md](./docs/git_and_pr_conventions.md). The PR template
+prefills its headings. How the code is laid out, and how to try a change in a real
+session, is in [AGENTS.md](./AGENTS.md).
