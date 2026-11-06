@@ -2,6 +2,8 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import type { Engine, FoundElement } from 'claude-code/testing'
 
+import { wrappedRows } from './layout'
+
 const NOTE = 'mcp__noticed-issues__note_issue'
 const RESOLVE = 'mcp__noticed-issues__resolve_issue'
 
@@ -810,9 +812,11 @@ test('a long detail is cut to three card lines, the file kept on a line of its o
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   const cut = await ui.find({ type: 'Text', text: /^word/ })
-  // The pane is 60 columns, the card's text 56 of them.
-  expect(cut?.text.length).toBe(3 * 56)
-  expect(cut?.text.endsWith('…')).toBe(true)
+  // The pane is 60 columns, the card's text 56 of them: three rows of eleven
+  // words, the last one ending in `…`.
+  expect(cut?.text.split(' ').length).toBe(33)
+  expect(wrappedRows(cut!.text, 56)).toBe(3)
+  expect(cut?.text.endsWith('word…')).toBe(true)
   expect((await ui.find({ type: 'Text', text: 'specs/a/very/long/path/to/some.spec.js' }))?.props.wrap).toBe('truncate-middle')
   await ui.unmount()
 })

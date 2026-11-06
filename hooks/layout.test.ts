@@ -42,6 +42,8 @@ test("a card's rows: heading, file, detail cut to three lines, border and contro
   // Five hundred characters of detail are drawn cut to 3 × 40 characters.
   expect(DETAIL_LINES).toBe(3)
   expect(cardRows(issue({ detail: 'word '.repeat(100) }), 40, false, NOW)).toBe(5 + DETAIL_LINES)
+  // Words that wrap badly still take three lines: 21 characters leave 19 of each row empty.
+  expect(cardRows(issue({ detail: `${'x'.repeat(21)} `.repeat(20) }), 40, false, NOW)).toBe(5 + DETAIL_LINES)
   // A linked GitHub issue puts number, link and status on a line of their own.
   expect(cardRows(issue({ githubUrl: 'https://github.com/o/r/issues/42' }), 40, false, NOW)).toBe(6)
 })

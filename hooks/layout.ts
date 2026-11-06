@@ -121,13 +121,22 @@ export const wrappedRows = (text: string, width: number) => {
   return rows
 }
 
+// `value` cut, with `…`, to what wraps in `rows` rows at `width`: cut by
+// characters alone, words that wrap badly would take more rows than that.
+export const clipRows = (value: string, width: number, rows: number) => {
+  let max = Math.min(value.length, rows * width)
+  while (max > 1 && wrappedRows(clip(value, max), width) > rows) max -= 1
+
+  return clip(value, max)
+}
+
 // The rows a card takes with `columns` inside its border. A plugin cannot
 // measure what it drew, so a group's rows are worked out from these.
 export const cardRows = (issue: Issue, columns: number, isConfirming: boolean, now: number) => {
   // The corner beside the heading, and a column before it: `5m ago  ✕ `, or `Delete? ✓ ↩ `.
   const head = Math.max(1, columns - (isConfirming ? 14 : 5 + age(issue.createdAt, now).length))
   const title = issue.githubUrl ? 1 + wrappedRows(issue.title, head) : wrappedRows(`#${issue.id} ${issue.title}`, head)
-  const detail = issue.detail ? wrappedRows(clip(issue.detail, DETAIL_LINES * columns), columns) : 0
+  const detail = issue.detail ? wrappedRows(clipRows(issue.detail, columns, DETAIL_LINES), columns) : 0
 
   // With the border's two rows, the controls' row and the blank row below the card.
   return title + (issue.file ? 1 : 0) + detail + 4

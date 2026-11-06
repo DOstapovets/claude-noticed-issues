@@ -5,7 +5,7 @@ import type { Issue, Priority, Tab } from '../types'
 import { session } from './context'
 import type { Api } from './context'
 import { createGithubIssue } from './github'
-import { age, arrange, cardColumnsOf, clip, DETAIL_LINES, firstCard, headRows, PRIORITIES, rank } from './layout'
+import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, headRows, PRIORITIES, rank } from './layout'
 import { startFeedback, startSession, whereRun } from './sessions'
 import { change, toggleGroup } from './store'
 
@@ -190,7 +190,7 @@ export async function renderPane($: Api, e: PaneRender) {
       )}
       {issue.detail && (
         <Text dimColor wrap="wrap">
-          {clip(issue.detail, DETAIL_LINES * cardColumns)}
+          {clipRows(issue.detail, cardColumns, DETAIL_LINES)}
         </Text>
       )}
       <Box justifyContent="space-between">
