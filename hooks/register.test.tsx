@@ -126,6 +126,17 @@ const flag = async ($: Engine) => {
   return found?.text
 }
 
+// The pane's group headings and card headings, in the order drawn; a card's as
+// `#<id> <its heading's text>`, the GitHub link and status included.
+const lines = async (ui: { findAll: (query: object) => Promise<{ type: string; key?: string; text: string }[]> }) =>
+  (await ui.findAll({})).flatMap(el =>
+    el.type === 'Text' && el.text.startsWith('● ')
+      ? [el.text]
+      : el.key?.startsWith('head-')
+        ? [el.text.replace(/^(#\d+)/, '$1 ')]
+        : [],
+  )
+
 const start = (cwd: string) => ({ cwd, surface: 'terminal' as const, isInteractive: true })
 
 test('issues are noted, deleted, resolved and kept per project', async ($, on) => {
@@ -170,7 +181,7 @@ test('issues are noted, deleted, resolved and kept per project', async ($, on) =
   expect(seen.opened).toBe(opened + 1)
 
   const back = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await back.find({ type: 'Text', text: '#3 Stale playwright cache' })).toBeDefined()
+  expect(await lines(back)).toContain('#3 Stale playwright cache')
   await back.unmount()
 
   const cleared = await $.command.run({
@@ -261,7 +272,8 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', G
   await seen.clock.settle()
   expect(seen.viewed).toEqual(['https://github.com/o/r/issues/7', 'https://github.com/o/r/issues/8'])
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /open · 📋 To do/ })).toBeDefined()
+  // The link and its status sit in the card's heading, after the number.
+  expect((await lines(ui))[1]).toMatch(/^#1 ↗ GitHub #7 · open · 📋 To do/)
   await ui.unmount()
 
   // Closed on GitHub, as not planned: gone on the next pass, here the one `/issues` starts.
@@ -283,7 +295,7 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', G
   expect(await flag($)).toBe('⚑ 1 issue')
   expect(seen.toasts.at(-1)).toContain('#3')
   const later = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await later.find({ type: 'Text', text: '#2 Not linked' })).toBeDefined()
+  expect(await lines(later)).toEqual(['● Medium 1', '#2 Not linked'])
   await later.unmount()
 })
 
@@ -362,9 +374,9 @@ test('issues are grouped by priority, highest first, and moved between groups', 
   // The order the groups and their issues are drawn in.
   const order = async () => {
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-    const lines = (await ui.findAll({ type: 'Text', text: /^(● |#\d+ )/ })).map(t => t.text)
+    const drawn = await lines(ui)
     await ui.unmount()
-    return lines
+    return drawn
   }
 
   // No priority, or one it does not know, is medium.
@@ -441,9 +453,7 @@ test('worktrees share the repository list, and their old lists fold into it', as
   await $.session.start(start('/repo/.claude/worktrees/wt'))
   expect(await flag($)).toBe('⚑ 3 issues')
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  for (const line of ['#4 Leaked key', '#5 No memory limit', '#6 Stale doc']) {
-    expect(await ui.find({ type: 'Text', text: line })).toBeDefined()
-  }
+  expect(await lines(ui)).toEqual(['● Medium 3', '#4 Leaked key', '#5 No memory limit', '#6 Stale doc'])
   expect(await ui.find({ type: 'Text', text: /Vendored issue/ })).toBeUndefined()
   await ui.unmount()
   expect(answer(await $.tool.call({ tool: NOTE, title: 'Noted from a worktree' }))).toContain('#7')

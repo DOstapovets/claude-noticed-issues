@@ -54,11 +54,12 @@ as a card with its number, title, file and detail, and these controls:
   asking it to call `resolve_issue`. The card then shows the session id, which
   `claude attach <id>` connects to.
 - **↗ GitHub issue** files it with `gh issue create` in the repository of the session's
-  directory: the title becomes the issue title, `detail` and `file` its body. The card
-  then links it as `↗ GitHub #42 · open · 📋 To do`, with the column of the project
-  board it is on, if any. Shown only where GitHub is on: see [Settings](#settings).
+  directory: the title becomes the issue title, `detail` and `file` its body. The card's
+  heading then links it next to the number, `#3 ↗ GitHub #42 · open · 📋 To do`, with
+  the column of the project board it is on, if any. Shown only where GitHub is on: see [Settings](#settings).
 - **✕ Delete** removes the entry.
-- **▲ / ▼** move it one priority up or down.
+- **▲ / ▼**, at the card's right edge, move it one priority up or down; each is drawn
+  in the color of the group it moves the issue to.
 
 **Commands:**
 

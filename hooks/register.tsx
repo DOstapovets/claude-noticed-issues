@@ -444,54 +444,65 @@ export const register: Register = (on, options) => {
         borderDimColor
         hover={{ borderColor: 'claude', borderDimColor: false }}
       >
-        <Text wrap="wrap">
+        <Box key={`head-${issue.id}`}>
           <Text color="claude" bold>
             #{issue.id}
-          </Text>{' '}
-          {issue.title}
-        </Text>
+          </Text>
+          {issue.githubUrl && (
+            <Box marginLeft={1}>
+              <Link href={issue.githubUrl} label={`↗ GitHub #${issue.githubUrl.split('/').pop()}`} />
+              {issue.github && (
+                <Text color="success"> · open{issue.github.board ? ` · ${issue.github.board}` : ''}</Text>
+              )}
+            </Box>
+          )}
+          <Box marginLeft={1} flexShrink={1}>
+            <Text wrap="wrap">{issue.title}</Text>
+          </Box>
+        </Box>
         {(issue.file || issue.detail) && (
           <Text dimColor wrap="wrap">
             {[issue.file, issue.detail].filter(Boolean).join(' — ')}
           </Text>
         )}
-        <Box>
-          {issue.sessionId ? (
-            <Text color="cyan">▶ {issue.sessionId} </Text>
-          ) : (
-            <Button
-              key={`session-${issue.id}`}
-              label="▶ New session"
-              variant="primary"
-              onPress={() => startSession($, issue.id)}
-            />
-          )}
-          {issue.githubUrl ? (
-            <Box marginRight={1}>
-              <Link href={issue.githubUrl} label={`↗ GitHub #${issue.githubUrl.split('/').pop()}`} />
-              {issue.github && (
-                <Text color="success">
-                  {' '}
-                  · open{issue.github.board ? ` · ${issue.github.board}` : ''}
-                </Text>
-              )}
-            </Box>
-          ) : (
-            github && (
+        <Box justifyContent="space-between">
+          <Box>
+            {issue.sessionId ? (
+              <Text color="cyan">▶ {issue.sessionId} </Text>
+            ) : (
+              <Button
+                key={`session-${issue.id}`}
+                label="▶ New session"
+                variant="primary"
+                onPress={() => startSession($, issue.id)}
+              />
+            )}
+            {github && !issue.githubUrl && (
               <Button
                 key={`github-${issue.id}`}
                 label="↗ GitHub issue"
                 onPress={() => createGithubIssue($, issue.id)}
               />
-            )
-          )}
-          <Button key={`delete-${issue.id}`} label="✕ Delete" dimColor onPress={() => remove($, issue.id)} />
-          {rank(issue) > 0 && (
-            <Button key={`raise-${issue.id}`} plain label="▲" dimColor onPress={() => shiftPriority($, issue.id, -1)} />
-          )}
-          {rank(issue) < PRIORITIES.length - 1 && (
-            <Button key={`lower-${issue.id}`} plain label="▼" dimColor onPress={() => shiftPriority($, issue.id, 1)} />
-          )}
+            )}
+            <Button key={`delete-${issue.id}`} label="✕ Delete" dimColor onPress={() => remove($, issue.id)} />
+          </Box>
+          {/* At the right edge, each arrow in the color of the group it moves the issue to. */}
+          <Box gap={3} paddingRight={1}>
+            {rank(issue) > 0 && (
+              <Button key={`raise-${issue.id}`} plain onPress={() => shiftPriority($, issue.id, -1)}>
+                <Text color={PRIORITIES[rank(issue) - 1]!.color} bold>
+                  ▲
+                </Text>
+              </Button>
+            )}
+            {rank(issue) < PRIORITIES.length - 1 && (
+              <Button key={`lower-${issue.id}`} plain onPress={() => shiftPriority($, issue.id, 1)}>
+                <Text color={PRIORITIES[rank(issue) + 1]!.color} bold>
+                  ▼
+                </Text>
+              </Button>
+            )}
+          </Box>
         </Box>
       </Box>
     )
