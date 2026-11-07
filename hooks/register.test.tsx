@@ -662,15 +662,13 @@ test('the Projects tab lists the other projects and opens one read only', async 
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ key: 'tab-session' })).toBeUndefined()
-  // In the footer, with Feedback at its right, without a count, in a secondary color: no tabs' row above.
+  // At the right of the tabs' row, without a count, in a secondary color.
   expect((await ui.find({ key: 'tab-projects' }))?.text.trim()).toBe('Projects')
   expect((await ui.find({ type: 'Text', text: ' Projects ' }))?.props.color).toBe('subtle')
-  expect((await ui.findAll({})).flatMap(el => (el.key?.startsWith('tab-') ? [el.key] : []))).toEqual(['tab-projects'])
-  expect((await ui.find({ key: 'footer' }))?.text).toMatch(/^ Projects .*✎ Feedback$/)
-  // Drawn last, below the groups and a space that keeps it at the pane's bottom edge.
-  const drawn = await ui.findAll({})
-  expect(drawn.filter(el => el.key).at(-1)?.key).toBe('feedback')
-  expect(drawn.slice(0, drawn.findIndex(el => el.key === 'footer')).at(-1)?.props.flexGrow).toBe(1)
+  expect((await ui.findAll({})).flatMap(el => (el.key?.startsWith('tab-') ? [el.key] : []))).toEqual([
+    'tab-all',
+    'tab-projects',
+  ])
   expect(await lines(ui)).toEqual(['▾ Medium 1', '#1 Here'])
 
   // This project first, marked; then those with issues, named from the remote where there is one.
@@ -740,13 +738,13 @@ test('each open group scrolls its cards under a heading that stays put', async (
   for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) await $.tool.call({ tool: NOTE, title: `Leak ${n}`, priority: 'high' })
   for (const n of [1, 2]) await $.tool.call({ tool: NOTE, title: `Doc ${n}` })
 
-  // The pane never outgrows its 40 rows, so the engine has nothing to scroll. Between
-  // the heading and the tabs above and the footer below, 34 rows, one of them blank
-  // between the groups: Medium needs 11 and gets them, High the other 22.
+  // The pane never outgrows its 40 rows, so the engine has nothing to scroll. Below
+  // the heading and the tabs, 36 rows, one of them blank between the groups: Medium
+  // needs 11 and gets them, High the other 24.
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(11)
   expect((await ui.find({ key: 'priority-medium' }))?.props.marginTop).toBe(1)
-  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(22)
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(24)
   expect((await ui.find({ key: 'priority-high' }))?.props.marginTop).toBe(0)
   const scroll = (by: number, row?: number) =>
     $.ui.scroll({
@@ -761,14 +759,14 @@ test('each open group scrolls its cards under a heading that stays put', async (
     } as never)
   const high = async () => (await lines(ui)).filter(line => line.startsWith('#') && line.includes('Leak'))
 
-  // Rows 4 to 25 are High's, 27 to 37 Medium's; a tick moves one card.
+  // Rows 4 to 27 are High's, 29 to 39 Medium's; a tick moves one card.
   expect((await high())[0]).toBe('#8 Leak 8')
   await scroll(1, 10)
   expect((await high())[0]).toBe('#7 Leak 7')
   expect(await ui.find({ type: 'Text', text: / ↑ 1 above/ })).toBeDefined()
   await scroll(3, 10)
   expect((await high())[0]).toBe('#6 Leak 6')
-  // No further than the view that shows the last card: 4 cards of 5 rows fit in 21.
+  // No further than the view that shows the last card: 4 cards of 5 rows fit in 23.
   for (let i = 0; i < 6; i += 1) await scroll(1, 10)
   expect((await high())[0]).toBe('#4 Leak 4')
   // Medium shows all its cards, so it does not scroll.
@@ -827,9 +825,9 @@ test('off the terminal the groups flow at their own height and the pane scrolls 
     expect(heading?.props.dimColor).toBe(surface === 'vscode' ? true : undefined)
     const dots = (await ui.findAll({ type: 'Text', text: /^●/ })).map(dot => dot.props.color)
     expect(dots).toEqual(surface === 'vscode' ? ['red', 'yellow'] : [])
-    // VS Code draws the pane's title itself: there is no heading of the plugin's, Feedback, in the footer, still is.
+    // VS Code draws the pane's title itself: there is no heading of the plugin's, Feedback still is.
     expect(await ui.find({ type: 'Text', text: /^Noticed issues/ })).toEqual(surface === 'vscode' ? undefined : expect.anything())
-    expect((await ui.find({ key: 'footer' }))?.text).toMatch(/✎ Feedback$/)
+    expect(await ui.find({ key: 'feedback' })).toBeDefined()
     // In VS Code the corner's age, ✕ and, once asked, Delete? ✓ ↩ are a character apart.
     const corner = async () => kids(kids(await ui.find({ key: 'issue-8' }))[0]).find(c => 'marginLeft' in c.props)
     expect((await corner())?.props.columnGap).toBe(surface === 'vscode' ? 1 : undefined)
@@ -862,7 +860,7 @@ test('off the terminal the groups flow at their own height and the pane scrolls 
 
   // Back on the terminal the groups keep their rows and scroll inside them.
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(22)
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(24)
   expect((await ui.find({ key: 'issue-1' }))?.props.paddingY).toBeUndefined()
   const before = passed
   await scroll()

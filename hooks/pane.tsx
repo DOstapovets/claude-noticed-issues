@@ -5,7 +5,7 @@ import type { Issue, Priority, Project, Tab } from '../types'
 import { session } from './context'
 import type { Api } from './context'
 import { createGithubIssue } from './github'
-import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, FOOT_ROWS, headRows, PRIORITIES, projectName, rank } from './layout'
+import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, headRows, PRIORITIES, projectName, rank } from './layout'
 import type { CardKind } from './layout'
 import { startFeedback, startSession, whereRun } from './sessions'
 import { change, loadProjects, toggleGroup } from './store'
@@ -87,7 +87,7 @@ export async function view($: Api) {
     current === 'session' ? mine : current === 'code' ? todoIssues(found) : current === 'projects' ? (opened?.items ?? []) : list
   const kind: CardKind = opened ? 'readOnly' : current === 'code' ? 'code' : 'own'
 
-  return { list, mine, others, todos: found, hasTabs: mine.length > 0 || found.length > 0, current, opened, shown, kind }
+  return { list, mine, others, todos: found, hasTabs: mine.length > 0 || found.length > 0 || others.length > 0, current, opened, shown, kind }
 }
 
 // Each tab, and each project opened on the Projects tab, starts at the top of its groups.
@@ -323,19 +323,15 @@ export async function renderPane($: Api, e: PaneRender) {
       onPress={press => startFeedback($, whereRun(press.surface, press.surface === 'terminal' ? session.paneFullscreen : undefined))}
     />
   )
+  // Projects, which leads away from this project's list, stands apart at the right, in a secondary color.
   const tabs = (
-    <Box gap={1}>
-      {mine.length > 0 && tabButton('session', `This session ${mine.length}`)}
-      {tabButton('all', `All ${list.length}`)}
-      {found.length > 0 && tabButton('code', `Code ${found.length}${session.todosCut ? '+' : ''}`)}
-    </Box>
-  )
-  // Below the groups: Projects, which leads away from this project's list, in a secondary color,
-  // and Feedback, about the plugin itself, at the right.
-  const footer = (
-    <Box key="footer" justifyContent="space-between" marginTop={1} flexShrink={0}>
-      {others.length > 0 ? tabButton('projects', 'Projects', 'subtle') : <Box />}
-      {feedback}
+    <Box justifyContent="space-between" flexGrow={1}>
+      <Box gap={1}>
+        {mine.length > 0 && tabButton('session', `This session ${mine.length}`)}
+        {tabButton('all', `All ${list.length}`)}
+        {found.length > 0 && tabButton('code', `Code ${found.length}${session.todosCut ? '+' : ''}`)}
+      </Box>
+      {others.length > 0 && tabButton('projects', 'Projects', 'subtle')}
     </Box>
   )
 
@@ -446,7 +442,7 @@ export async function renderPane($: Api, e: PaneRender) {
   const listsProjects = current === 'projects' && !opened
 
   const bodyRows = e.props.scroll.bodyRows
-  const groups = arrange(shown, await read($, collapsed), headRows(hasTabs, readOnly), bodyRows - FOOT_ROWS, cardColumns, confirming, now, kind)
+  const groups = arrange(shown, await read($, collapsed), headRows(hasTabs, readOnly), bodyRows, cardColumns, confirming, now, kind)
   const at = await read($, scrolled)
 
   // A comment in the code: its text, where it is, and a session for it or a place on the list.
@@ -535,14 +531,22 @@ export async function renderPane($: Api, e: PaneRender) {
 
   return (
     <Box flexDirection="column" {...(fitsRows && !listsProjects ? { height: bodyRows, overflow: 'hidden' as const } : {})}>
-      {/* VS Code heads the pane with its title already. */}
-      {!titled && (
-        <Box marginBottom={1}>
-          <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
+      {titled ? (
+        // VS Code heads the pane with its title already: there Feedback joins the tabs' row.
+        <Box justifyContent="space-between" marginBottom={1} gap={2}>
+          {hasTabs ? tabs : <Box />}
+          {feedback}
         </Box>
+      ) : (
+        <>
+          <Box justifyContent="space-between" marginBottom={1}>
+            <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
+            {feedback}
+          </Box>
+          {hasTabs && <Box marginBottom={1}>{tabs}</Box>}
+        </>
       )}
-      {hasTabs && <Box marginBottom={1}>{tabs}</Box>}
-      {current !== 'projects' && current !== 'code' && list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
+      {current !== 'projects' && current !== 'code' && list.length === 0 &&<Text dimColor>Nothing noticed in this project.</Text>}
       {listsProjects &&
         projectRow(
           { root: session.storeKey.slice('issues:'.length), ...(session.remote ? { remote: session.remote } : {}), items: list },
@@ -552,9 +556,6 @@ export async function renderPane($: Api, e: PaneRender) {
       {back}
       {/* A folded group keeps its place in the priority order. */}
       {groups.map(group)}
-      {/* Where the rows are counted the footer stays at the pane's bottom edge. */}
-      {fitsRows && !listsProjects && <Box flexGrow={1} />}
-      {footer}
     </Box>
   )
 }
