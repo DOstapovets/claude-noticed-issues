@@ -5,7 +5,7 @@ import type { Priority, Rule } from '../types'
 import { MINUTE, session } from './context'
 import type { Api } from './context'
 import { onGithub, refreshGithub } from './github'
-import { arrange, cardColumnsOf, clip, count, firstCard, headRows, LIMITS, PRIORITIES, rank } from './layout'
+import { arrange, cardColumnsOf, clip, count, firstCard, FOOT_ROWS, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
 import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
 import { addIssue, change, COLLAPSED_KEY, load, loadProjects, migrate, save } from './store'
@@ -330,7 +330,7 @@ export const register: Register = (on, options) => {
       shown,
       await read($, collapsed),
       headRows(hasTabs, opened !== undefined),
-      e.bodyRows,
+      e.bodyRows - FOOT_ROWS,
       cardColumnsOf(session.paneColumns),
       kind === 'own' ? await read($, deleting) : null,
       await read($, minute),
