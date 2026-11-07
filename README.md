@@ -81,8 +81,9 @@ three lines. These are its controls:
 - **▲ / ▼**, at the card's right edge while the pointer is over the card, move it one
   priority up or down; each is drawn in the color of the group it moves the issue to.
 
-**The footer**, at the pane's bottom edge, holds **Projects** at the left, once another
-project has a list too, and **✎ Feedback** at the right.
+**The footer**, at the pane's bottom edge, holds **⧉ Projects** at the left, once another
+project has a list too, and **✎ Feedback** at the right, each with a space a side like
+the tabs.
 
 **Other projects.** Once another project has a list too, a **Projects** tab stands in
 the footer, in a secondary color, also when this project's list is

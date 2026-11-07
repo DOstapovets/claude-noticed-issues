@@ -314,12 +314,13 @@ export async function renderPane($: Api, e: PaneRender) {
 
   // The pane's own title, which VS Code already draws above it.
   const titled = e.surface === 'vscode'
+  // A space a side, as the tabs have; VS Code's chip has room of its own.
   const feedback = (
     <Button
       key="feedback"
       plain
       dimColor
-      label="✎ Feedback"
+      label={colorlessButtons ? '✎ Feedback' : ' ✎ Feedback '}
       onPress={press => startFeedback($, whereRun(press.surface, press.surface === 'terminal' ? session.paneFullscreen : undefined))}
     />
   )
@@ -334,7 +335,7 @@ export async function renderPane($: Api, e: PaneRender) {
   // and Feedback, about the plugin itself, at the right.
   const footer = (
     <Box key="footer" justifyContent="space-between" marginTop={1} flexShrink={0}>
-      {others.length > 0 ? tabButton('projects', 'Projects', 'subtle') : <Box />}
+      {others.length > 0 ? tabButton('projects', '⧉ Projects', 'subtle') : <Box />}
       {feedback}
     </Box>
   )

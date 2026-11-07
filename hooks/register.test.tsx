@@ -663,10 +663,11 @@ test('the Projects tab lists the other projects and opens one read only', async 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ key: 'tab-session' })).toBeUndefined()
   // In the footer, with Feedback at its right, without a count, in a secondary color: no tabs' row above.
-  expect((await ui.find({ key: 'tab-projects' }))?.text.trim()).toBe('Projects')
-  expect((await ui.find({ type: 'Text', text: ' Projects ' }))?.props.color).toBe('subtle')
+  // Each has its icon and a space a side.
+  expect((await ui.find({ key: 'tab-projects' }))?.text.trim()).toBe('⧉ Projects')
+  expect((await ui.find({ type: 'Text', text: ' ⧉ Projects ' }))?.props.color).toBe('subtle')
   expect((await ui.findAll({})).flatMap(el => (el.key?.startsWith('tab-') ? [el.key] : []))).toEqual(['tab-projects'])
-  expect((await ui.find({ key: 'footer' }))?.text).toMatch(/^ Projects .*✎ Feedback$/)
+  expect((await ui.find({ key: 'footer' }))?.text).toMatch(/^ ⧉ Projects .* ✎ Feedback $/)
   // Drawn last, below the groups and a space that keeps it at the pane's bottom edge.
   const drawn = await ui.findAll({})
   expect(drawn.filter(el => el.key).at(-1)?.key).toBe('feedback')
@@ -675,7 +676,7 @@ test('the Projects tab lists the other projects and opens one read only', async 
 
   // This project first, marked; then those with issues, named from the remote where there is one.
   await ui.press({ key: 'tab-projects' })
-  expect((await ui.find({ type: 'Text', text: ' Projects ' }))?.props.backgroundColor).toBe('subtle')
+  expect((await ui.find({ type: 'Text', text: ' ⧉ Projects ' }))?.props.backgroundColor).toBe('subtle')
   const rows = async () =>
     (await ui.findAll({})).flatMap(el => (el.key?.startsWith('project-/') && el.key !== 'project-/proj/a' ? [el.text] : []))
   expect((await ui.find({ key: 'project-/proj/a' }))?.text).toBe('a /proj/a● 1this project')
@@ -829,7 +830,8 @@ test('off the terminal the groups flow at their own height and the pane scrolls 
     expect(dots).toEqual(surface === 'vscode' ? ['red', 'yellow'] : [])
     // VS Code draws the pane's title itself: there is no heading of the plugin's, Feedback, in the footer, still is.
     expect(await ui.find({ type: 'Text', text: /^Noticed issues/ })).toEqual(surface === 'vscode' ? undefined : expect.anything())
-    expect((await ui.find({ key: 'footer' }))?.text).toMatch(/✎ Feedback$/)
+    // VS Code draws a Button as a chip with room of its own: no spaces about the label there.
+    expect((await ui.find({ key: 'footer' }))?.text).toBe(surface === 'vscode' ? '✎ Feedback' : ' ✎ Feedback ')
     // In VS Code the corner's age, ✕ and, once asked, Delete? ✓ ↩ are a character apart.
     const corner = async () => kids(kids(await ui.find({ key: 'issue-8' }))[0]).find(c => 'marginLeft' in c.props)
     expect((await corner())?.props.columnGap).toBe(surface === 'vscode' ? 1 : undefined)
