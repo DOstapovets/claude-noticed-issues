@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.24.0...v0.24.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* on the list of projects the footer stays at the pane's bottom edge ([280aa74](https://github.com/DOstapovets/claude-noticed-issues/commit/280aa74b96f078d3c3fc73f373dc768d1c7677e4))
+
 ## [0.24.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.23.0...v0.24.0) (2026-11-07)
 
 
