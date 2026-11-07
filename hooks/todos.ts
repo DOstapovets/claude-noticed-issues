@@ -17,11 +17,19 @@ const todos = atom({ plugin: 'noticed-issues', key: 'todos' } as const, [])
 // A tag counts only after a comment's opening, so `TODO_LIST` and a word in a
 // string do not; a lone `*` only at the start of a line, as inside `/* */`, so
 // Markdown's `**FIXME**` does not either. POSIX classes: `git grep -E` knows no
-// `\b` on every system.
+// `\b` on every system. An opening inside quotes is left to `parseTodos`.
 const PATTERN = '(//|#|/\\*|^[[:space:]]*\\*|--|<!--|;)[[:space:]]*(TODO|FIXME|HACK|XXX)([^A-Za-z0-9_]|$)'
 const ROW = /^(.+?):(\d+):(.*)$/
-// The tag, an author in parentheses, `:` or `-`, then the text.
-const TAG = /(?:\/\/|#|\/\*|^\s*\*|--|<!--|;)\s*(TODO|FIXME|HACK|XXX)(?![A-Za-z0-9_])(?:\([^)]*\))?\s*[:-]?\s*(.*)$/
+// The comment's opening and the tag, then an author in parentheses and `:` or `-`; the text follows.
+const TAG = /(?:\/\/|#|\/\*|^\s*\*|--|<!--|;)\s*(TODO|FIXME|HACK|XXX)(?![A-Za-z0-9_])(?:\([^)]*\))?\s*[:-]?\s*/g
+// Where a comment opened on the line closes, and what follows on it.
+const CLOSE = /\s*(\*\/|-->).*$/
+
+// Whether `at` is inside a string: before it, an odd count of one kind of quote, not counting escaped ones.
+const inString = (code: string, at: number) => {
+  const before = code.slice(0, at).replace(/\\./g, '')
+  return ["'", '"', '`'].some(quote => before.split(quote).length % 2 === 0)
+}
 
 // The Code tab holds this many at most and says when there were more.
 export const TODO_LIMIT = 200
@@ -34,15 +42,19 @@ export const TAG_LABELS: Record<Priority, string> = { high: 'FIXME', medium: 'HA
 // `git grep -n`'s answer, `path:line:text` a row, as the comments it found.
 export const parseTodos = (stdout: string) =>
   stdout.split('\n').flatMap((row): Todo[] => {
-    const [, file, line, code] = row.match(ROW) ?? []
-    const [, tag, rest] = code?.match(TAG) ?? []
+    const [, file, line, code = ''] = row.match(ROW) ?? []
+    // The first tag outside a string: a test's fixture is not a comment.
+    const found = [...code.matchAll(TAG)].find(m => !inString(code, m.index))
 
-    if (!file || !tag) {
+    if (!file || !found) {
       return []
     }
 
-    const text = (rest ?? '').replace(/\s*(\*\/|-->)\s*$/, '').trim()
-    return [{ tag: tag as Todo['tag'], file, line: Number(line), text: clip(text || `${tag} in ${file}:${line}`, LIMITS.title) }]
+    const tag = found[1] as Todo['tag']
+    const text = code.slice(found.index + found[0].length).replace(CLOSE, '').trim()
+    // Punctuation alone says nothing: the tag and where it is do.
+    const said = /[\p{L}\p{N}]/u.test(text) ? text : `${tag} in ${file}:${line}`
+    return [{ tag, file, line: Number(line), text: clip(said, LIMITS.title) }]
   })
 
 // The comments as cards in the pane's groups, in the order found: `arrange` puts the newest first.

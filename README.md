@@ -101,7 +101,10 @@ every 30 seconds.
 **Comments in the code.** When the working tree's tracked files hold `TODO`, `FIXME`,
 `HACK` or `XXX` comments, a **Code 12** tab follows **All**. A tag counts after a
 comment's opening (`//`, `#`, `/*`, `*` at a line's start, `--`, `<!--`, `;`), so a name
-like `TODO_LIST`, or Markdown's `**TODO**`, does not. They are found with `git grep` at session start, when the tab is pressed, on
+like `TODO_LIST`, or Markdown's `**TODO**`, does not; nor does an opening inside a string's
+quotes, such as a test's fixture `'a.ts:1:// TODO: x'`. The text ends where the comment
+closes (`*/`, `-->`), and a tag followed only by punctuation is named after the tag and its
+place, `TODO in a.ts:4`. They are found with `git grep` at session start, when the tab is pressed, on
 `/issues` and, while the tab is open, every 30 seconds; they are not stored, so a comment
 taken out of the code leaves the tab. The groups are headed by tags: **FIXME**, **HACK ·
 XXX**, **TODO**. Each card shows the comment's text and `path:line`, with two controls:
