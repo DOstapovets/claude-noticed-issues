@@ -17,6 +17,9 @@ export const rank = (issue: Issue) => PRIORITIES.findIndex(p => p.value === (iss
 // then, for another project's list, the row that leads back to every project and another.
 export const headRows = (hasTabs: boolean, hasBack = false) => (hasTabs ? 4 : 2) + (hasBack ? 2 : 0)
 
+// Rows below the groups: a blank row, then the footer's, with Projects and Feedback.
+export const FOOT_ROWS = 2
+
 // Splits `free` rows between groups that need `needs` rows each: one that
 // needs no more than an even share gets what it needs, and the rows it leaves
 // go to the rest, which share them evenly.
