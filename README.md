@@ -81,8 +81,11 @@ three lines. These are its controls:
 - **▲ / ▼**, at the card's right edge while the pointer is over the card, move it one
   priority up or down; each is drawn in the color of the group it moves the issue to.
 
-**Other projects.** Once another project has a list too, a **Projects** tab stands at
-the right end of the tabs' row, in a secondary color, also when this project's list is
+**The footer**, at the pane's bottom edge, holds **Projects** at the left, once another
+project has a list too, and **✎ Feedback** at the right.
+
+**Other projects.** Once another project has a list too, a **Projects** tab stands in
+the footer, in a secondary color, also when this project's list is
 empty (open the pane with `/issues`). It
 lists this project first, in the accent color and marked `this project` (pressing it
 leads back to its own list), then every other project the plugin has kept a list for, one row each: its name
@@ -100,7 +103,7 @@ inside each card. Where nothing is drawn on hover (VS Code, the mobile app), ▲
 always show. VS Code draws no colors inside a button, so there a group's heading is
 a colored dot beside its name, which is the part you press; the arrows and the tab
 not shown are dim; the cards stand in under the heading; and the pane's own heading
-is left out, as VS Code titles the pane, with **✎ Feedback** on the tabs' row. On
+is left out, as VS Code titles the pane, and the footer follows the last group. On
 the Projects tab each project there is a card like an entry's: its name a dim button
 with the counts beside it, its directory on a line below.
 
@@ -112,7 +115,7 @@ with the counts beside it, its directory on a line below.
 - `/issues setup` starts the analysis that writes the [repository rule](#repository-rule), again whenever you want it redone.
 - `/issues feedback` does what the pane's **✎ Feedback** button does, below.
 
-**✎ Feedback**, in the pane's heading, is for reporting something about this plugin
+**✎ Feedback**, in the pane's footer, is for reporting something about this plugin
 itself. It starts a background session (`claude attach <id>` joins it, as the toast
 says) that asks you what it is, a bug, a feature request, or a question or idea, and
 what that needs. It collects the Claude Code and plugin versions by itself, is told
