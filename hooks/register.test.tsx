@@ -686,8 +686,12 @@ test('the Projects tab lists the other projects and opens one read only', async 
     expect.stringMatching(/^c \/proj\/c.*no issues.*just now$/),
   ])
   expect(await lines(ui)).toEqual([])
-  // The list of projects is not cut to the pane's rows: the pane scrolls it whole.
-  expect((await ui.findAll({})).find(el => el.type === 'Box')?.props.height).toBeUndefined()
+  // The list of projects is not cut to the pane's rows: the pane scrolls it whole. A
+  // short one still fills them, so the footer stays at the bottom edge below a space.
+  const pane = await ui.findAll({})
+  expect(pane.find(el => el.type === 'Box')?.props.height).toBeUndefined()
+  expect(pane.find(el => el.type === 'Box')?.props.minHeight).toBe(40)
+  expect(pane.slice(0, pane.findIndex(el => el.key === 'footer')).at(-1)?.props.flexGrow).toBe(1)
 
   // Its cards have no controls: only when each was noted.
   await ui.press({ key: 'open-/proj/b' })

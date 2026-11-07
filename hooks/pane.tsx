@@ -535,7 +535,11 @@ export async function renderPane($: Api, e: PaneRender) {
   }
 
   return (
-    <Box flexDirection="column" {...(fitsRows && !listsProjects ? { height: bodyRows, overflow: 'hidden' as const } : {})}>
+    // The list of projects is not cut to the rows but fills them at least, so its footer stays at the bottom too.
+    <Box
+      flexDirection="column"
+      {...(fitsRows ? (listsProjects ? { minHeight: bodyRows } : { height: bodyRows, overflow: 'hidden' as const }) : {})}
+    >
       {/* VS Code heads the pane with its title already. */}
       {!titled && (
         <Box marginBottom={1}>
@@ -554,7 +558,7 @@ export async function renderPane($: Api, e: PaneRender) {
       {/* A folded group keeps its place in the priority order. */}
       {groups.map(group)}
       {/* Where the rows are counted the footer stays at the pane's bottom edge. */}
-      {fitsRows && !listsProjects && <Box flexGrow={1} />}
+      {fitsRows && <Box flexGrow={1} />}
       {footer}
     </Box>
   )

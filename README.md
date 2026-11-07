@@ -83,7 +83,8 @@ three lines. These are its controls:
 
 **The footer**, at the pane's bottom edge, holds **⧉ Projects** at the left, once another
 project has a list too, and **✎ Feedback** at the right, each with a space a side like
-the tabs.
+the tabs. In the terminal it stays there on every tab, the list of projects included,
+which pushes it down only once the list is longer than the pane.
 
 **Other projects.** Once another project has a list too, a **Projects** tab stands in
 the footer, in a secondary color, also when this project's list is
