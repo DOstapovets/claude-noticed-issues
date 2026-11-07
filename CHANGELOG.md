@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.24.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.23.0...v0.24.0) (2026-11-07)
+
+
+### Features
+
+* a Code tab lists the TODO, FIXME, HACK and XXX comments in the code ([ef806d1](https://github.com/DOstapovets/claude-noticed-issues/commit/ef806d1888b99eeb66eff07b85b17553ab328874))
+* Projects and Feedback move to a footer at the pane's bottom edge ([e533dd3](https://github.com/DOstapovets/claude-noticed-issues/commit/e533dd35c8cf08b1eab6fbdd3137bcc1d143c1f3))
+* the footer's Projects has an icon, ⧉, and Feedback a space a side ([f10d898](https://github.com/DOstapovets/claude-noticed-issues/commit/f10d8982aec066bab7a21838304cf1c4725af263))
+
+
+### Bug Fixes
+
+* the Code tab skips a TODO or FIXME inside a string's quotes ([95f0c9e](https://github.com/DOstapovets/claude-noticed-issues/commit/95f0c9effe555ce0882eb04b243b3eb18ce414b0))
+
 ## [0.23.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.22.0...v0.23.0) (2026-11-06)
 
 
