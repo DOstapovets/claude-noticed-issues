@@ -94,6 +94,18 @@ project to see its entries in the same groups and cards, read only: no **▶**, 
 leads back to the list. The list is read again each time the tab is pressed, on `/issues`, and, while the tab is open,
 every 30 seconds.
 
+**Comments in the code.** When the working tree's tracked files hold `TODO`, `FIXME`,
+`HACK` or `XXX` comments, a **Code 12** tab follows **All**. A tag counts after a
+comment's opening (`//`, `#`, `/*`, `*` at a line's start, `--`, `<!--`, `;`), so a name
+like `TODO_LIST`, or Markdown's `**TODO**`, does not. They are found with `git grep` at session start, when the tab is pressed, on
+`/issues` and, while the tab is open, every 30 seconds; they are not stored, so a comment
+taken out of the code leaves the tab. The groups are headed by tags: **FIXME**, **HACK ·
+XXX**, **TODO**. Each card shows the comment's text and `path:line`, with two controls:
+**→ List** notes it as an entry at its group's priority, whose detail asks to remove the
+comment once it is fixed, and **▶ New session** notes it and starts the session for that
+entry. A comment already on the list, by its title, says `on the list #N` instead. The tab
+holds the first 200 and reads `Code 200+` when there are more.
+
 **Outside the terminal** (VS Code, the desktop app, the mobile app) each group takes
 the height its cards need and the pane scrolls as a whole, with a little more room
 inside each card. Where nothing is drawn on hover (VS Code, the mobile app), ▲ / ▼

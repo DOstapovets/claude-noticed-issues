@@ -18,7 +18,17 @@ export type Issue = {
 
 export type Priority = 'high' | 'medium' | 'low'
 
-export type Tab = 'all' | 'session' | 'projects'
+export type Tab = 'all' | 'session' | 'code' | 'projects'
+
+/** A TODO, FIXME, HACK or XXX comment in the code, as `git grep` last found it: kept for the session only. */
+export type Todo = {
+  tag: 'TODO' | 'FIXME' | 'HACK' | 'XXX'
+  /** Its path from the working tree's root. */
+  file: string
+  line: number
+  /** What follows the tag, or, when nothing does, the tag and where it is. */
+  text: string
+}
 
 export type GithubStatus = {
   state: 'OPEN' | 'CLOSED'
@@ -60,8 +70,10 @@ declare module 'claude-code' {
       issues: Issue[]
       /** The priority groups folded in the pane, mirrored from `$.store` (`collapsed`). */
       collapsed: Priority[]
-      /** The pane's tab: every issue, only those this session noted, or the other projects. */
+      /** The pane's tab: every issue, only those this session noted, the comments in the code, or the other projects. */
       tab: Tab
+      /** The TODO, FIXME, HACK and XXX comments in this working tree, as the last `git grep` found them. */
+      todos: Todo[]
       /** Every other project with a list in `$.store`, those with issues first. */
       projects: Project[]
       /** The root of the project open on the Projects tab, if any. */

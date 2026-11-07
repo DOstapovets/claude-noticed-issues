@@ -141,6 +141,9 @@ test('a read-only card has no row of controls and only its age in the corner', (
   // the heading, which wraps it; `just now` alone leaves 31, which hold it.
   const long = issue({ title: 'abcdefghij abcdefghij abcd' })
   expect(cardRows(long, 40, false, NOW)).toBe(2 + 4)
-  expect(cardRows(long, 40, false, NOW, true)).toBe(1 + 3)
+  expect(cardRows(long, 40, false, NOW, 'readOnly')).toBe(1 + 3)
+  // A comment's card has no corner and no number: 36 characters fit in its 40.
+  const comment = issue({ title: 'abcdefghij abcdefghij abcdefghij abcd', file: 'a.ts:1' })
+  expect(cardRows(comment, 40, false, NOW, 'code')).toBe(1 + 1 + 4)
   expect(headRows(true, true)).toBe(6)
 })
