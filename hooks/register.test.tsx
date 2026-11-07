@@ -59,6 +59,8 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     repo: null as string | null,
     remote: null as string | null,
     git: {} as Record<string, string>,
+    // What `git grep` finds, `path:line:text` a row; empty finds nothing, null is outside a repository.
+    grep: '' as string | null,
     // What `gh issue view` answers, and the URLs it was asked about.
     // A function answers per URL.
     github: { state: 'OPEN', projectItems: [] } as unknown,
@@ -103,6 +105,17 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     value: seen.repo === null ? null : { root: seen.repo, remote: seen.remote, internal: false, name: null },
   }))
   on('process.run', async (_, e) => {
+    if (e.argv[0] === 'git' && e.argv.includes('grep')) {
+      return {
+        value: {
+          exitCode: seen.grep === null ? 128 : seen.grep === '' ? 1 : 0,
+          stdout: seen.grep ?? '',
+          stderr: seen.grep === null ? 'fatal: not a git repository' : '',
+          isStdoutTruncated: false,
+          isStderrTruncated: false,
+        },
+      }
+    }
     if (e.argv[0] === 'git') {
       const dir = seen.git[e.argv[2] ?? '']
       return {
@@ -1205,4 +1218,92 @@ test('/issues setup starts the analysis whenever asked', async ($, on) => {
   expect(ran.text).toContain('Setup session started')
   expect(seen.argv).toHaveLength(1)
   expect(seen.argv[0]?.[2]).toContain('save_issue_rule')
+})
+
+const GREP = [
+  'src/a.ts:3:// TODO: cache the result',
+  'src/b.py:10:    # FIXME(dima): crashes on empty input',
+  'README.md:5:<!-- HACK keep for now -->',
+].join('\n')
+
+test('the Code tab lists the comments in the code, by tag, and puts one on the list', async ($, on) => {
+  const seen = engine(on)
+  seen.grep = GREP
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ key: 'tab-code' }))?.text.trim()).toBe('Code 3')
+  // Not on the list: the count above the prompt stays hidden.
+  expect(await flag($)).toBeUndefined()
+
+  await ui.press({ key: 'tab-code' })
+  expect(await lines(ui)).toEqual([
+    '▾ FIXME 1',
+    'crashes on empty input',
+    '▾ HACK · XXX 1',
+    'keep for now',
+    '▾ TODO 1',
+    'cache the result',
+  ])
+  expect(await ui.find({ type: 'Text', text: 'src/b.py:10' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Nothing noticed in this project.' })).toBeUndefined()
+  for (const key of ['delete-2', 'raise-2', 'lower-2']) expect(await ui.find({ key })).toBeUndefined()
+
+  // → List notes it at the tag's priority; the card then says where it is on the list.
+  await ui.press({ key: 'todo-list-2' })
+  expect(seen.store.get('issues:/proj/a').items).toEqual([
+    expect.objectContaining({
+      id: 1,
+      title: 'crashes on empty input',
+      file: 'src/b.py:10',
+      priority: 'high',
+      detail: expect.stringContaining('remove the comment'),
+    }),
+  ])
+  expect(seen.toasts.at(-1)).toBe('⚑ noted #1: crashes on empty input')
+  expect(await ui.find({ key: 'todo-list-2' })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: 'on the list #1' })).toBeDefined()
+
+  // ▶ notes it too, and starts the session for that issue.
+  await ui.press({ key: 'todo-session-1' })
+  expect(seen.argv.at(-1)?.[2]).toContain('Fix noticed issue #2: cache the result')
+  expect(seen.argv.at(-1)?.[2]).toContain('Where: src/a.ts:3')
+  expect(seen.argv.at(-1)?.[2]).toContain('remove the comment')
+  expect(await ui.find({ type: 'Text', text: '▶ 4b7cb777' })).toBeDefined()
+  expect(await flag($)).toBe('⚑ 2 issues · 2 this session')
+
+  // Read again while the tab is open: a comment removed from the code is gone.
+  seen.grep = 'src/b.py:10:    # FIXME(dima): crashes on empty input'
+  await seen.clock.advance(30_000)
+  expect(await lines(ui)).toEqual(['▾ FIXME 1', 'crashes on empty input'])
+
+  // With none left the tab goes, and the pane shows every issue.
+  seen.grep = ''
+  await seen.clock.advance(30_000)
+  expect(await ui.find({ key: 'tab-code' })).toBeUndefined()
+  expect(await lines(ui)).toEqual(['▾ High 1', '#1 crashes on empty input', '▾ Low 1', '#2 cache the result'])
+  await ui.unmount()
+})
+
+test('the Code tab holds 200 comments at most, and none outside a repository', async ($, on) => {
+  const seen = engine(on)
+  seen.grep = Array.from({ length: 205 }, (_, i) => `a.ts:${i + 1}:// TODO: step ${i + 1}`).join('\n')
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ key: 'tab-code' }))?.text.trim()).toBe('Code 200+')
+  await ui.unmount()
+
+  // `/issues` reads them again.
+  seen.grep = null
+  await $.command.run({
+    command: 'issues',
+    args: '',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: true, columns: 160 },
+  })
+  const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await after.find({ key: 'tab-code' })).toBeUndefined()
+  await after.unmount()
 })

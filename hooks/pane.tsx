@@ -6,8 +6,10 @@ import { session } from './context'
 import type { Api } from './context'
 import { createGithubIssue } from './github'
 import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, FOOT_ROWS, headRows, PRIORITIES, projectName, rank } from './layout'
+import type { CardKind } from './layout'
 import { startFeedback, startSession, whereRun } from './sessions'
 import { change, loadProjects, toggleGroup } from './store'
+import { listTodo, scanTodos, startTodoSession, TAG_LABELS, todoIssues } from './todos'
 
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads or writes it, so this module names the atoms it uses; types/index.d.ts
@@ -26,6 +28,8 @@ const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, nu
 const scrolled = atom({ plugin: 'noticed-issues', key: 'scrolled' } as const, {})
 // The time the cards' ages are told from, moved on once a minute.
 const minute = atom({ plugin: 'noticed-issues', key: 'minute' } as const, 0)
+// The comments in the code, as the last `git grep` found them.
+const todos = atom({ plugin: 'noticed-issues', key: 'todos' } as const, [])
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.
@@ -69,20 +73,31 @@ export async function view($: Api) {
   const others = await read($, projects)
   const sessionId = await $.session.id()
   const mine = list.filter(issue => issue.noticedIn === sessionId)
+  const found = await read($, todos)
   const chosen = await read($, tab)
   const current: Tab =
-    (chosen === 'session' && mine.length === 0) || (chosen === 'projects' && others.length === 0) ? 'all' : chosen
+    (chosen === 'session' && mine.length === 0) ||
+    (chosen === 'code' && found.length === 0) ||
+    (chosen === 'projects' && others.length === 0)
+      ? 'all'
+      : chosen
   const root = await read($, project)
   const opened = current === 'projects' ? others.find(p => p.root === root) : undefined
-  const shown = current === 'session' ? mine : current === 'projects' ? (opened?.items ?? []) : list
+  const shown =
+    current === 'session' ? mine : current === 'code' ? todoIssues(found) : current === 'projects' ? (opened?.items ?? []) : list
+  const kind: CardKind = opened ? 'readOnly' : current === 'code' ? 'code' : 'own'
 
-  return { list, mine, others, hasTabs: mine.length > 0, current, opened, shown }
+  return { list, mine, others, todos: found, hasTabs: mine.length > 0 || found.length > 0, current, opened, shown, kind }
 }
 
 // Each tab, and each project opened on the Projects tab, starts at the top of its groups.
 async function chooseTab($: Api, value: Tab) {
-  if (value === 'projects' || (await read($, tab)) === 'projects') {
+  const apart = (t: Tab) => t === 'projects' || t === 'code'
+  if (apart(value) || apart(await read($, tab))) {
     await update($, scrolled, () => ({}))
+  }
+  if (value === 'code') {
+    await scanTodos($)
   }
   if (value === 'projects') {
     await loadProjects($)
@@ -133,9 +148,9 @@ export async function renderPane($: Api, e: PaneRender) {
   const now = await read($, minute)
   // The session tab is offered only while this session has noted something, the
   // Projects tab while another project has a list; there a project's cards are read only.
-  const { mine, others, hasTabs, current, opened, shown } = await view($)
+  const { mine, others, todos: found, hasTabs, current, opened, shown, kind } = await view($)
   const readOnly = opened !== undefined
-  const confirming = readOnly ? null : await read($, deleting)
+  const confirming = kind === 'own' ? await read($, deleting) : null
 
   // The card's top right corner: when it was noted, and a red ✕, which asks once before it deletes.
   // VS Code draws its Buttons as framed chips, which a space does not part from the
@@ -312,6 +327,7 @@ export async function renderPane($: Api, e: PaneRender) {
     <Box gap={1}>
       {mine.length > 0 && tabButton('session', `This session ${mine.length}`)}
       {tabButton('all', `All ${list.length}`)}
+      {found.length > 0 && tabButton('code', `Code ${found.length}${session.todosCut ? '+' : ''}`)}
     </Box>
   )
   // Below the groups: Projects, which leads away from this project's list, in a secondary color,
@@ -430,10 +446,51 @@ export async function renderPane($: Api, e: PaneRender) {
   const listsProjects = current === 'projects' && !opened
 
   const bodyRows = e.props.scroll.bodyRows
-  const groups = arrange(shown, await read($, collapsed), headRows(hasTabs, readOnly), bodyRows - FOOT_ROWS, cardColumns, confirming, now, readOnly)
+  const groups = arrange(shown, await read($, collapsed), headRows(hasTabs, readOnly), bodyRows - FOOT_ROWS, cardColumns, confirming, now, kind)
   const at = await read($, scrolled)
 
-  const group = ({ priority, items, isOpen, rows, lastFirst }: (typeof groups)[number], index: number) => {
+  // A comment in the code: its text, where it is, and a session for it or a place on the list.
+  // Once on the list, by its title, it says so.
+  const todoCard = (issue: Issue) => {
+    const todo = found[issue.id - 1]!
+    const listed = list.find(i => i.title.toLowerCase() === issue.title.toLowerCase())
+
+    return (
+      <Box
+        key={`todo-${issue.id}`}
+        flexDirection="column"
+        marginBottom={space?.betweenCards ?? 1}
+        {...(space ? { marginLeft: space.cardIndent } : {})}
+        paddingX={1}
+        {...(fitsRows ? {} : { paddingY: CARD_PADDING_Y, rowGap: CARD_ROW_GAP })}
+        flexShrink={0}
+        borderStyle="round"
+        borderDimColor
+        hover={{ borderColor: 'claude', borderDimColor: false }}
+      >
+        <Box key={`head-todo-${issue.id}`}>
+          <Text bold wrap="wrap">
+            {issue.title}
+          </Text>
+        </Box>
+        <Text dimColor wrap="truncate-middle">
+          {issue.file}
+        </Text>
+        <Box gap={2}>
+          {listed?.sessionId && <Text color="cyan">▶ {listed.sessionId}</Text>}
+          {listed && <Text dimColor>on the list #{listed.id}</Text>}
+          {!listed && (
+            <Button key={`todo-session-${issue.id}`} label="▶ New session" variant="primary" onPress={() => startTodoSession($, todo)} />
+          )}
+          {!listed && <Button key={`todo-list-${issue.id}`} label="→ List" onPress={() => listTodo($, todo)} />}
+        </Box>
+      </Box>
+    )
+  }
+
+  const group = ({ priority: shownAs, items, isOpen, rows, lastFirst }: (typeof groups)[number], index: number) => {
+    // On the Code tab a group is headed by its tags.
+    const priority = kind === 'code' ? { ...shownAs, label: TAG_LABELS[shownAs.value] } : shownAs
     const first = fitsRows ? firstCard(at[priority.value], lastFirst) : 0
 
     return (
@@ -471,7 +528,7 @@ export async function renderPane($: Api, e: PaneRender) {
           )}
           {isOpen && first > 0 && <Text dimColor> ↑ {first} above</Text>}
         </Box>
-        {isOpen && items.slice(first).map(card)}
+        {isOpen && items.slice(first).map(kind === 'code' ? todoCard : card)}
       </Box>
     )
   }
@@ -485,7 +542,7 @@ export async function renderPane($: Api, e: PaneRender) {
         </Box>
       )}
       {hasTabs && <Box marginBottom={1}>{tabs}</Box>}
-      {current !== 'projects' && list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
+      {current !== 'projects' && current !== 'code' && list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
       {listsProjects &&
         projectRow(
           { root: session.storeKey.slice('issues:'.length), ...(session.remote ? { remote: session.remote } : {}), items: list },

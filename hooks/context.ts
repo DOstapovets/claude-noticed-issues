@@ -16,6 +16,8 @@ export const session = {
   remote: undefined as string | undefined,
   // Whether this session offers GitHub issues and reads their status.
   github: false,
+  // Whether the last `git grep` found more comments than the Code tab holds.
+  todosCut: false,
   // The pane's width as last drawn: `ui.scroll` does not carry it.
   paneColumns: 60,
   // Whether the pane was last drawn on the terminal, the one surface whose rows the

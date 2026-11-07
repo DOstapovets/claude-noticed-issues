@@ -46,6 +46,25 @@ export async function change($: Api, fn: (list: Issue[]) => Issue[]) {
   return save($, fn(await load($)))
 }
 
+// A new issue at the next number, noted by this session, unless one with the
+// same title, ignoring case, is on the list already: that one is returned.
+export async function addIssue($: Api, fields: Pick<Issue, 'title' | 'detail' | 'file' | 'priority'>) {
+  const list = await load($)
+  const same = list.find(i => i.title.toLowerCase() === fields.title.toLowerCase())
+
+  if (same) {
+    return { issue: same, isNew: false }
+  }
+
+  const { title, ...rest } = fields
+  const issue: Issue = { id: session.nextId, title, createdAt: await $.clock.now(), noticedIn: await $.session.id(), ...rest }
+  session.nextId += 1
+  await save($, [...list, issue])
+  await $.ui.toast(`⚑ noted #${issue.id}: ${title}`)
+
+  return { issue, isNew: true }
+}
+
 // Each list in the store but this project's: those with issues first, then the
 // most recently changed. A list kept per worktree before 0.4 shows as one of its
 // own until a session in its repository folds it in.

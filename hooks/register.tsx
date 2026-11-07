@@ -1,14 +1,15 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { Issue, Priority, Rule } from '../types'
+import type { Priority, Rule } from '../types'
 import { MINUTE, session } from './context'
 import type { Api } from './context'
 import { onGithub, refreshGithub } from './github'
 import { arrange, cardColumnsOf, clip, count, firstCard, FOOT_ROWS, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
 import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
-import { change, COLLAPSED_KEY, load, loadProjects, migrate, save } from './store'
+import { addIssue, change, COLLAPSED_KEY, load, loadProjects, migrate, save } from './store'
+import { scanTodos } from './todos'
 
 const PANE = 'noticed-issues'
 const TITLE = 'Noticed issues'
@@ -57,6 +58,7 @@ export const register: Register = (on, options) => {
     }
     const list = await load($)
     await loadProjects($)
+    void scanTodos($)
     const folded = (await $.store.get(COLLAPSED_KEY)) as Priority[] | undefined
     await update($, collapsed, () => folded ?? [])
     const rule = (await $.store.get(session.ruleKey)) as Rule | undefined
@@ -120,10 +122,13 @@ export const register: Register = (on, options) => {
     }
     await tick()
     $.clock.every(AGE_MS, () => void tick())
-    // The other projects are read again only while their tab is open: pressing it, and `/issues`, read them too.
+    // The other projects, and the comments in the code, are read again only while their tab is open:
+    // pressing it, and `/issues`, read them too.
     $.clock.every(RELOAD_MS, async () => {
       await load($)
-      if ((await read($, tab)) === 'projects') await loadProjects($)
+      const open = await read($, tab)
+      if (open === 'projects') await loadProjects($)
+      if (open === 'code') await scanTodos($)
     })
     $.clock.every(GITHUB_MS, () => void refreshGithub($))
     void refreshGithub($)
@@ -163,23 +168,19 @@ export const register: Register = (on, options) => {
       return { result: 'Not noted: `title` is required.' }
     }
 
-    const list = await load($)
-    const same = list.find(i => i.title.toLowerCase() === title.toLowerCase())
-
-    if (same) {
-      return { result: `Already on the list as #${same.id}.` }
-    }
-
-    const issue: Issue = { id: session.nextId, title, createdAt: await $.clock.now(), noticedIn: await $.session.id() }
     const detail = field('detail')
     const file = field('file')
-    if (detail) issue.detail = detail
-    if (file) issue.file = file
-    if (PRIORITIES.some(p => p.value === input.priority)) issue.priority = input.priority as Priority
+    const { issue, isNew } = await addIssue($, {
+      title,
+      ...(detail ? { detail } : {}),
+      ...(file ? { file } : {}),
+      ...(PRIORITIES.some(p => p.value === input.priority) ? { priority: input.priority as Priority } : {}),
+    })
 
-    session.nextId += 1
-    await save($, [...list, issue])
-    await $.ui.toast(`⚑ noted #${issue.id}: ${title}`)
+    if (!isNew) {
+      return { result: `Already on the list as #${issue.id}.` }
+    }
+
     void openPane($)
 
     const note = cut.length > 0 ? ` (${cut.join(', ')})` : ''
@@ -269,6 +270,7 @@ export const register: Register = (on, options) => {
 
     const list = await load($)
     await loadProjects($)
+    await scanTodos($)
     void refreshGithub($)
     const opened = await openPane($)
 
@@ -318,7 +320,7 @@ export const register: Register = (on, options) => {
   // Elsewhere (VS Code, desktop, mobile), and on the list of projects, the groups
   // flow and the pane scrolls whole.
   on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
-    const { hasTabs, current, opened, shown } = await view($)
+    const { hasTabs, current, opened, shown, kind } = await view($)
 
     if (!session.paneOnTerminal || (current === 'projects' && !opened)) {
       return next(e)
@@ -330,9 +332,9 @@ export const register: Register = (on, options) => {
       headRows(hasTabs, opened !== undefined),
       e.bodyRows - FOOT_ROWS,
       cardColumnsOf(session.paneColumns),
-      opened ? null : await read($, deleting),
+      kind === 'own' ? await read($, deleting) : null,
       await read($, minute),
-      opened !== undefined,
+      kind,
     ).filter(g => g.isOpen)
     const row = e.pointer?.row
     const target = row === undefined ? open[0] : open.find(g => row >= g.top && row < g.top + g.rows)
