@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { Frozen, MatchedEvent } from 'claude-code'
+import type { Frozen, MatchedEvent, RenderSurface } from 'claude-code'
 
 import type { Issue, Priority, Project, Tab } from '../types'
 import { session } from './context'
@@ -123,6 +123,15 @@ async function remove($: Api, id: number) {
 async function confirmRemove($: Api, id: number) {
   await update($, deleting, () => null)
   await remove($, id)
+}
+
+// The issue as text to paste into a prompt: its number and title, where, and the detail whole.
+async function copyIssue($: Api, issue: Issue, surface: RenderSurface) {
+  const text = [`#${issue.id} ${issue.title}`, issue.file && `Where: ${issue.file}`, issue.detail && `\n${issue.detail}`]
+    .filter(Boolean)
+    .join('\n')
+  const copied = await $.ui.copy({ text, surface })
+  await $.ui.toast(copied.isCopied ? `⎘ #${issue.id} copied: paste it into the prompt` : `Could not copy #${issue.id}: ${copied.reason}`)
 }
 
 export async function renderPane($: Api, e: PaneRender) {
@@ -263,6 +272,7 @@ export async function renderPane($: Api, e: PaneRender) {
                 onPress={() => createGithubIssue($, issue.id)}
               />
             )}
+            <Button key={`copy-${issue.id}`} label="⎘ Copy" onPress={press => copyIssue($, issue, press.surface)} />
           </Box>
           {/* At the right edge, shown while the pointer is over the card: each arrow in the
               color of the group it moves the issue to, padded with a space a side so it is

@@ -74,7 +74,15 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     // The questions `$.ui.ask` put, and the label the user picks; null dismisses the dialog.
     asked: [] as string[],
     choice: 'Not now' as string | null,
+    // What `$.ui.copy` put on the clipboard; false makes it find none.
+    copied: [] as string[],
+    clipboard: true,
   }
+  on('ui.copy', (_, e) => {
+    if (!seen.clipboard) return { value: { isCopied: false as const, reason: 'no-clipboard' as const } }
+    seen.copied.push(e.text)
+    return { value: { isCopied: true as const } }
+  })
   on('tool.call', { tool: 'AskUserQuestion' }, (_, e) => {
     const questions = (e as unknown as { questions: { question: string }[] }).questions
     const question = questions[0]?.question ?? ''
@@ -325,6 +333,28 @@ test('a background session is started for an issue', async ($, on) => {
   const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await after.find({ type: 'Text', text: '▶ 4b7cb777' })).toBeDefined()
   await after.unmount()
+})
+
+test('an issue is copied to paste into a prompt', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache', detail: 'cache is 2 GB', file: '~/.cache/ms-playwright' })
+  await $.tool.call({ tool: NOTE, title: 'Typo in README' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'copy-1' })
+  expect(seen.copied.at(-1)).toBe('#1 Stale playwright cache\nWhere: ~/.cache/ms-playwright\n\ncache is 2 GB')
+  expect(seen.toasts.at(-1)).toBe('⎘ #1 copied: paste it into the prompt')
+
+  await ui.press({ key: 'copy-2' })
+  expect(seen.copied.at(-1)).toBe('#2 Typo in README')
+
+  // No clipboard: the toast says so.
+  seen.clipboard = false
+  await ui.press({ key: 'copy-1' })
+  expect(seen.copied).toHaveLength(2)
+  expect(seen.toasts.at(-1)).toBe('Could not copy #1: no-clipboard')
+  await ui.unmount()
 })
 
 const GITHUB_ON = { options: { github: 'on' } }
