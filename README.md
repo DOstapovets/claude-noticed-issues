@@ -93,7 +93,7 @@ which pushes it down only once the list is longer than the pane.
 the footer, in a secondary color, also when this project's list is
 empty (open the pane with `/issues`). It
 lists this project first, in the accent color and marked `this project` (pressing it
-leads back to its own list), then every other project the plugin has kept a list for, one row each: its name
+leads back to its own list), then every other project the plugin has kept a list for, one row each, a blank row apart: its name
 (`owner/repo` from its `origin` remote, else its directory's name), its directory, how many entries
 it has in each priority, in the groups' colors (`● 2 ● 1`), and when its list last
 changed. Projects with no entries left come last, dimmed, as `no issues`. Press a

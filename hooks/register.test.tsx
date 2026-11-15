@@ -718,6 +718,8 @@ test('the Projects tab lists the other projects and opens one read only', async 
   // A project with none is dim, its name too: a dim Text around it does not reach the name's own.
   expect((await ui.find({ type: 'Text', text: /^c$/ }))?.props.dimColor).toBe(true)
   expect((await ui.find({ type: 'Text', text: /^o\/b$/ }))?.props.dimColor).toBeUndefined()
+  // A blank row below each project in the terminal.
+  expect((await ui.find({ key: 'project-/proj/b' }))?.props.marginBottom).toBe(1)
   expect(await lines(ui)).toEqual([])
   // The list of projects is not cut to the pane's rows: the pane scrolls it whole. A
   // short one still fills them, so the footer stays at the bottom edge below a space.

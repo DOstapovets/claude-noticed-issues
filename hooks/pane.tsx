@@ -417,7 +417,8 @@ export async function renderPane($: Api, e: PaneRender) {
     }
 
     return (
-      <Box key={`project-${p.root}`} justifyContent="space-between" flexShrink={0}>
+      // A blank row below each in the terminal, half a line where a surface draws part of one.
+      <Box key={`project-${p.root}`} justifyContent="space-between" marginBottom={fitsRows ? 1 : CARD_PADDING_Y} flexShrink={0}>
         <Box flexGrow={1} flexShrink={1}>
           <Button key={`open-${p.root}`} plain onPress={pressProject(p, isCurrent)}>
             <Text wrap="truncate-end">
