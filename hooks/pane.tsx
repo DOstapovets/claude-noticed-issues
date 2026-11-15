@@ -420,8 +420,12 @@ export async function renderPane($: Api, e: PaneRender) {
       <Box key={`project-${p.root}`} justifyContent="space-between" flexShrink={0}>
         <Box flexGrow={1} flexShrink={1}>
           <Button key={`open-${p.root}`} plain onPress={pressProject(p, isCurrent)}>
-            <Text wrap="truncate-end" {...(empty && !isCurrent ? { dimColor: true } : {})}>
-              <Text bold={!empty || isCurrent} {...(isCurrent ? { color: 'claude' as const } : {})}>
+            <Text wrap="truncate-end">
+              {/* Dim on the name itself: a dim Text around it does not reach the name's own. */}
+              <Text
+                bold={!empty || isCurrent}
+                {...(isCurrent ? { color: 'claude' as const } : empty ? { dimColor: true } : {})}
+              >
                 {projectName(p.root, p.remote)}
               </Text>{' '}
               <Text dimColor>{p.root}</Text>
