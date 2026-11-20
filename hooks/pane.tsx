@@ -9,7 +9,7 @@ import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, FOOT_RO
 import type { CardKind } from './layout'
 import { startFeedback, startSession, whereRun } from './sessions'
 import { change, loadProjects, toggleGroup } from './store'
-import { listTodo, scanTodos, startTodoSession, TAG_LABELS, todoIssues } from './todos'
+import { listTodo, scanTodos, startTodoSession, TAG_LABELS, todoIssues, toggleTodos } from './todos'
 
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads or writes it, so this module names the atoms it uses; types/index.d.ts
@@ -30,6 +30,8 @@ const scrolled = atom({ plugin: 'noticed-issues', key: 'scrolled' } as const, {}
 const minute = atom({ plugin: 'noticed-issues', key: 'minute' } as const, 0)
 // The comments in the code, as the last `git grep` found them.
 const todos = atom({ plugin: 'noticed-issues', key: 'todos' } as const, [])
+// The settings, the same in every project.
+const settings = atom({ plugin: 'noticed-issues', key: 'settings' } as const, {})
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.
@@ -67,7 +69,8 @@ async function shiftPriority($: Api, id: number, step: -1 | 1) {
 
 // What the pane lists: every issue, this session's on its tab, offered only
 // while this session has noted something, or on the Projects tab, offered while
-// another project has a list, the issues of the project open there.
+// another project has a list, the issues of the project open there. The settings
+// list none, and show the tabs, which lead back.
 export async function view($: Api) {
   const list = await read($, issues)
   const others = await read($, projects)
@@ -84,10 +87,20 @@ export async function view($: Api) {
   const root = await read($, project)
   const opened = current === 'projects' ? others.find(p => p.root === root) : undefined
   const shown =
-    current === 'session' ? mine : current === 'code' ? todoIssues(found) : current === 'projects' ? (opened?.items ?? []) : list
+    current === 'session'
+      ? mine
+      : current === 'code'
+        ? todoIssues(found)
+        : current === 'projects'
+          ? (opened?.items ?? [])
+          : current === 'settings'
+            ? []
+            : list
   const kind: CardKind = opened ? 'readOnly' : current === 'code' ? 'code' : 'own'
 
-  return { list, mine, others, todos: found, hasTabs: mine.length > 0 || found.length > 0, current, opened, shown, kind }
+  const hasTabs = mine.length > 0 || found.length > 0 || current === 'settings'
+
+  return { list, mine, others, todos: found, hasTabs, current, opened, shown, kind }
 }
 
 // Each tab, and each project opened on the Projects tab, starts at the top of its groups.
@@ -342,11 +355,31 @@ export async function renderPane($: Api, e: PaneRender) {
     </Box>
   )
   // Below the groups: Projects, which leads away from this project's list, in a secondary color,
-  // and Feedback, about the plugin itself, at the right.
+  // and Settings and Feedback, about the plugin itself, at the right.
   const footer = (
     <Box key="footer" justifyContent="space-between" marginTop={1} flexShrink={0}>
       {others.length > 0 ? tabButton('projects', '⧉ Projects', 'subtle') : <Box />}
-      {feedback}
+      <Box gap={1}>
+        {tabButton('settings', '⚙ Settings', 'subtle')}
+        {feedback}
+      </Box>
+    </Box>
+  )
+
+  // The settings, in place of the groups: for now only the experimental ones, each a switch with what it does below.
+  const { todos: todosOn } = await read($, settings)
+  const settingsView = current === 'settings' && (
+    <Box key="settings" flexDirection="column" flexShrink={0}>
+      <Text bold>Experimental</Text>
+      <Text dimColor wrap="wrap">
+        May change or go away in a later version.
+      </Text>
+      <Box marginTop={1}>
+        <Button key="setting-todos" plain label={`${todosOn ? '[✓]' : '[ ]'} Code tab`} onPress={() => toggleTodos($)} />
+      </Box>
+      <Text dimColor wrap="wrap">
+        TODO, FIXME, HACK and XXX comments in the code, found with git grep, to put on the list or start a session for.
+      </Text>
     </Box>
   )
 
@@ -562,7 +595,7 @@ export async function renderPane($: Api, e: PaneRender) {
         </Box>
       )}
       {hasTabs && <Box marginBottom={1}>{tabs}</Box>}
-      {current !== 'projects' && current !== 'code' && list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
+      {current !== 'projects' && current !== 'code' && current !== 'settings' && list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
       {listsProjects &&
         projectRow(
           { root: session.storeKey.slice('issues:'.length), ...(session.remote ? { remote: session.remote } : {}), items: list },
@@ -570,6 +603,7 @@ export async function renderPane($: Api, e: PaneRender) {
         )}
       {listsProjects && others.map(p => projectRow(p))}
       {back}
+      {settingsView}
       {/* A folded group keeps its place in the priority order. */}
       {groups.map(group)}
       {/* Where the rows are counted the footer stays at the pane's bottom edge. */}

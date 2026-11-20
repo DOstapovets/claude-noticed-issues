@@ -1,14 +1,14 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { Priority, Rule } from '../types'
+import type { Priority, Rule, Settings } from '../types'
 import { MINUTE, session } from './context'
 import type { Api } from './context'
 import { onGithub, refreshGithub } from './github'
 import { arrange, cardColumnsOf, clip, count, firstCard, FOOT_ROWS, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
 import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
-import { addIssue, change, COLLAPSED_KEY, load, loadProjects, migrate, save } from './store'
+import { addIssue, change, COLLAPSED_KEY, load, loadProjects, migrate, save, SETTINGS_KEY } from './store'
 import { scanTodos } from './todos'
 
 const PANE = 'noticed-issues'
@@ -25,6 +25,8 @@ const GITHUB_MS = 5 * 60_000
 
 // The priority groups folded in the pane, the same in every project.
 const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
+// The settings, the same in every project.
+const settings = atom({ plugin: 'noticed-issues', key: 'settings' } as const, {})
 // The card whose ✕ asks to confirm, for this session only.
 const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, null)
 // The pane's tab, for this session only.
@@ -58,6 +60,8 @@ export const register: Register = (on, options) => {
     }
     const list = await load($)
     await loadProjects($)
+    const saved = (await $.store.get(SETTINGS_KEY)) as Settings | undefined
+    await update($, settings, () => saved ?? {})
     void scanTodos($)
     const folded = (await $.store.get(COLLAPSED_KEY)) as Priority[] | undefined
     await update($, collapsed, () => folded ?? [])

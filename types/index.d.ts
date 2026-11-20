@@ -18,7 +18,13 @@ export type Issue = {
 
 export type Priority = 'high' | 'medium' | 'low'
 
-export type Tab = 'all' | 'session' | 'code' | 'projects'
+export type Tab = 'all' | 'session' | 'code' | 'projects' | 'settings'
+
+/** What `$.store` keeps under `settings`, the same in every project. */
+export type Settings = {
+  /** Whether the experimental Code tab lists the comments in the code; absent is off. */
+  todos?: boolean
+}
 
 /** A TODO, FIXME, HACK or XXX comment in the code, as `git grep` last found it: kept for the session only. */
 export type Todo = {
@@ -70,8 +76,10 @@ declare module 'claude-code' {
       issues: Issue[]
       /** The priority groups folded in the pane, mirrored from `$.store` (`collapsed`). */
       collapsed: Priority[]
-      /** The pane's tab: every issue, only those this session noted, the comments in the code, or the other projects. */
+      /** The pane's tab: every issue, only those this session noted, the comments in the code, the other projects, or the settings. */
       tab: Tab
+      /** The settings, mirrored from `$.store` (`settings`). */
+      settings: Settings
       /** The TODO, FIXME, HACK and XXX comments in this working tree, as the last `git grep` found them. */
       todos: Todo[]
       /** Every other project with a list in `$.store`, those with issues first. */

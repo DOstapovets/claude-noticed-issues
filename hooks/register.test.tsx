@@ -61,6 +61,8 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     git: {} as Record<string, string>,
     // What `git grep` finds, `path:line:text` a row; empty finds nothing, null is outside a repository.
     grep: '' as string | null,
+    // How many times `git grep` was run.
+    grepped: 0,
     // What `gh issue view` answers, and the URLs it was asked about.
     // A function answers per URL.
     github: { state: 'OPEN', projectItems: [] } as unknown,
@@ -114,6 +116,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
   }))
   on('process.run', async (_, e) => {
     if (e.argv[0] === 'git' && e.argv.includes('grep')) {
+      seen.grepped += 1
       return {
         value: {
           exitCode: seen.grep === null ? 128 : seen.grep === '' ? 1 : 0,
@@ -636,6 +639,7 @@ test('tabs show every issue or only those this session noted, once it has noted 
   expect((await tabs.findAll({})).flatMap(el => (el.key?.startsWith('tab-') ? [el.key] : []))).toEqual([
     'tab-session',
     'tab-all',
+    'tab-settings',
   ])
   expect(await lines(tabs)).toEqual(['▾ High 1', '#3 Noted here', '▾ Medium 2', '#2 Other session', '#1 From before'])
   await tabs.press({ key: 'tab-session' })
@@ -692,12 +696,12 @@ test('the Projects tab lists the other projects and opens one read only', async 
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await ui.find({ key: 'tab-session' })).toBeUndefined()
-  // In the footer, with Feedback at its right, without a count, in a secondary color: no tabs' row above.
+  // In the footer, with Settings and Feedback at its right, without a count, in a secondary color: no tabs' row above.
   // Each has its icon and a space a side.
   expect((await ui.find({ key: 'tab-projects' }))?.text.trim()).toBe('⧉ Projects')
   expect((await ui.find({ type: 'Text', text: ' ⧉ Projects ' }))?.props.color).toBe('subtle')
-  expect((await ui.findAll({})).flatMap(el => (el.key?.startsWith('tab-') ? [el.key] : []))).toEqual(['tab-projects'])
-  expect((await ui.find({ key: 'footer' }))?.text).toMatch(/^ ⧉ Projects .* ✎ Feedback $/)
+  expect((await ui.findAll({})).flatMap(el => (el.key?.startsWith('tab-') ? [el.key] : []))).toEqual(['tab-projects', 'tab-settings'])
+  expect((await ui.find({ key: 'footer' }))?.text).toMatch(/^ ⧉ Projects .* ⚙ Settings  ✎ Feedback $/)
   // Drawn last, below the groups and a space that keeps it at the pane's bottom edge.
   const drawn = await ui.findAll({})
   expect(drawn.filter(el => el.key).at(-1)?.key).toBe('feedback')
@@ -867,10 +871,10 @@ test('off the terminal the groups flow at their own height and the pane scrolls 
     expect(heading?.props.dimColor).toBe(surface === 'vscode' ? true : undefined)
     const dots = (await ui.findAll({ type: 'Text', text: /^●/ })).map(dot => dot.props.color)
     expect(dots).toEqual(surface === 'vscode' ? ['red', 'yellow'] : [])
-    // VS Code draws the pane's title itself: there is no heading of the plugin's, Feedback, in the footer, still is.
+    // VS Code draws the pane's title itself: there is no heading of the plugin's, Settings and Feedback, in the footer, still are.
     expect(await ui.find({ type: 'Text', text: /^Noticed issues/ })).toEqual(surface === 'vscode' ? undefined : expect.anything())
     // VS Code draws a Button as a chip with room of its own: no spaces about the label there.
-    expect((await ui.find({ key: 'footer' }))?.text).toBe(surface === 'vscode' ? '✎ Feedback' : ' ✎ Feedback ')
+    expect((await ui.find({ key: 'footer' }))?.text).toBe(surface === 'vscode' ? '⚙ Settings✎ Feedback' : ' ⚙ Settings  ✎ Feedback ')
     // In VS Code the corner's age, ✕ and, once asked, Delete? ✓ ↩ are a character apart.
     const corner = async () => kids(kids(await ui.find({ key: 'issue-8' }))[0]).find(c => 'marginLeft' in c.props)
     expect((await corner())?.props.columnGap).toBe(surface === 'vscode' ? 1 : undefined)
@@ -1268,7 +1272,7 @@ const GREP = [
 ].join('\n')
 
 test('the Code tab lists the comments in the code, by tag, and puts one on the list', async ($, on) => {
-  const seen = engine(on)
+  const seen = engine(on, { settings: { todos: true } })
   seen.grep = GREP
   await $.session.start(start('/proj/a'))
   await seen.clock.settle()
@@ -1328,7 +1332,7 @@ test('the Code tab lists the comments in the code, by tag, and puts one on the l
 })
 
 test('the Code tab holds 200 comments at most, and none outside a repository', async ($, on) => {
-  const seen = engine(on)
+  const seen = engine(on, { settings: { todos: true } })
   seen.grep = Array.from({ length: 205 }, (_, i) => `a.ts:${i + 1}:// TODO: step ${i + 1}`).join('\n')
   await $.session.start(start('/proj/a'))
   await seen.clock.settle()
@@ -1347,4 +1351,52 @@ test('the Code tab holds 200 comments at most, and none outside a repository', a
   const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await after.find({ key: 'tab-code' })).toBeUndefined()
   await after.unmount()
+})
+
+test('the experimental Code tab is off until switched on in Settings, beside Feedback, and stays so in every project', async ($, on) => {
+  const seen = engine(on)
+  seen.grep = GREP
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+
+  // Off: git is not asked and there is no tab.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(seen.grepped).toBe(0)
+  expect(await ui.find({ key: 'tab-code' })).toBeUndefined()
+  expect((await ui.find({ key: 'footer' }))?.text).toMatch(/ ⚙ Settings  ✎ Feedback $/)
+  expect((await ui.find({ type: 'Text', text: ' ⚙ Settings ' }))?.props.color).toBe('subtle')
+
+  // Settings take the groups' place, under the tabs, which lead back.
+  await ui.press({ key: 'tab-settings' })
+  expect((await ui.find({ type: 'Text', text: ' ⚙ Settings ' }))?.props.backgroundColor).toBe('subtle')
+  expect(await ui.find({ type: 'Text', text: 'Experimental' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Nothing noticed in this project.' })).toBeUndefined()
+  expect((await ui.find({ key: 'setting-todos' }))?.text).toBe('[ ] Code tab')
+  expect(await ui.find({ key: 'tab-all' })).toBeDefined()
+
+  // On: the comments are read at once, and the choice is kept for every project.
+  await ui.press({ key: 'setting-todos' })
+  expect((await ui.find({ key: 'setting-todos' }))?.text).toBe('[✓] Code tab')
+  expect(seen.store.get('settings')).toEqual({ todos: true })
+  expect((await ui.find({ key: 'tab-code' }))?.text.trim()).toBe('Code 3')
+  await ui.press({ key: 'tab-all' })
+  expect(await ui.find({ type: 'Text', text: 'Experimental' })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: 'Nothing noticed in this project.' })).toBeDefined()
+  await ui.unmount()
+
+  await $.session.start(start('/proj/b'))
+  await seen.clock.settle()
+  const other = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await other.find({ key: 'tab-code' }))?.text.trim()).toBe('Code 3')
+
+  // Switched off again from the Code tab: the tab goes, and the comments are no longer read.
+  await other.press({ key: 'tab-code' })
+  await other.press({ key: 'tab-settings' })
+  await other.press({ key: 'setting-todos' })
+  expect(seen.store.get('settings')).toEqual({ todos: false })
+  expect(await other.find({ key: 'tab-code' })).toBeUndefined()
+  const asked = seen.grepped
+  await seen.clock.advance(30_000)
+  expect(seen.grepped).toBe(asked)
+  await other.unmount()
 })

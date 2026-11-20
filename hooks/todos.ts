@@ -1,15 +1,16 @@
-import { atom, update } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 
-import type { Issue, Priority, Todo } from '../types'
+import type { Issue, Priority, Settings, Todo } from '../types'
 import { session } from './context'
 import type { Api } from './context'
 import { clip, LIMITS } from './layout'
 import { startSession } from './sessions'
-import { addIssue } from './store'
+import { addIssue, SETTINGS_KEY } from './store'
 
 // The engine's scan reads a `$.state` value only from a const of the file that
-// reads or writes it, so this module names the atom itself; types/index.d.ts declares it once.
+// reads or writes it, so this module names the atoms itself; types/index.d.ts declares them once.
 const todos = atom({ plugin: 'noticed-issues', key: 'todos' } as const, [])
+const settings = atom({ plugin: 'noticed-issues', key: 'settings' } as const, {})
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.
@@ -68,8 +69,15 @@ export const todoIssues = (found: Todo[]): Issue[] =>
   }))
 
 // Every tracked file of this working tree, paths from its root. Outside a
-// repository, or when git does not answer, there is nothing to show.
+// repository, or when git does not answer, there is nothing to show; while the
+// experimental Code tab is off, git is not asked.
 export async function scanTodos($: Api) {
+  if (!(await read($, settings)).todos) {
+    session.todosCut = false
+    await update($, todos, () => [])
+    return
+  }
+
   const ran = await $.process
     .run(['git', '-C', session.cwd, '-c', 'core.quotePath=off', 'grep', '-nIE', '--full-name', PATTERN, '--', ':/'])
     .catch(() => undefined)
@@ -77,6 +85,13 @@ export async function scanTodos($: Api) {
   const found = ran?.exitCode === 0 ? parseTodos(ran.stdout) : []
   session.todosCut = found.length > TODO_LIMIT || ran?.isStdoutTruncated === true
   await update($, todos, () => found.slice(0, TODO_LIMIT))
+}
+
+// Turned on, the comments are read at once; turned off, the tab goes.
+export async function toggleTodos($: Api) {
+  const next: Settings = await update($, settings, was => ({ ...was, todos: !was.todos }))
+  await $.store.set(SETTINGS_KEY, next)
+  await scanTodos($)
 }
 
 // On the list it is an issue like any other, kept until resolved, the comment its place.

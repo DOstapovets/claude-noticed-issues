@@ -11,6 +11,8 @@ const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
 // The priority groups folded in the pane, the same in every project.
 const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
 export const COLLAPSED_KEY = 'collapsed'
+// The settings, the same in every project.
+export const SETTINGS_KEY = 'settings'
 // Every other project's list, for the pane's Projects tab.
 const projects = atom({ plugin: 'noticed-issues', key: 'projects' } as const, [])
 

@@ -85,7 +85,7 @@ three lines. These are its controls:
   priority up or down; each is drawn in the color of the group it moves the issue to.
 
 **The footer**, at the pane's bottom edge, holds **⧉ Projects** at the left, once another
-project has a list too, and **✎ Feedback** at the right, each with a space a side like
+project has a list too, and **⚙ Settings** and **✎ Feedback** at the right, each with a space a side like
 the tabs. In the terminal it stays there on every tab, the list of projects included,
 which pushes it down only once the list is longer than the pane.
 
@@ -102,13 +102,19 @@ project to see its entries in the same groups and cards, read only: no **▶**, 
 leads back to the list. The list is read again each time the tab is pressed, on `/issues`, and, while the tab is open,
 every 30 seconds.
 
-**Comments in the code.** When the working tree's tracked files hold `TODO`, `FIXME`,
+**Settings.** **⚙ Settings**, in the footer's secondary color, shows the settings in
+place of the groups, with the tabs above to lead back. They are the same in every
+project and kept across sessions. For now there is one section, **Experimental**, for
+what may change or go away in a later version: **[ ] Code tab** switches the Code tab
+below on or off, and is off until you switch it on.
+
+**Comments in the code** (experimental, off until switched on in **⚙ Settings**). When the working tree's tracked files hold `TODO`, `FIXME`,
 `HACK` or `XXX` comments, a **Code 12** tab follows **All**. A tag counts after a
 comment's opening (`//`, `#`, `/*`, `*` at a line's start, `--`, `<!--`, `;`), so a name
 like `TODO_LIST`, or Markdown's `**TODO**`, does not; nor does an opening inside a string's
 quotes, such as a test's fixture `'a.ts:1:// TODO: x'`. The text ends where the comment
 closes (`*/`, `-->`), and a tag followed only by punctuation is named after the tag and its
-place, `TODO in a.ts:4`. They are found with `git grep` at session start, when the tab is pressed, on
+place, `TODO in a.ts:4`. They are found with `git grep` when the setting is switched on, at session start, when the tab is pressed, on
 `/issues` and, while the tab is open, every 30 seconds; they are not stored, so a comment
 taken out of the code leaves the tab. The groups are headed by tags: **FIXME**, **HACK ·
 XXX**, **TODO**. Each card shows the comment's text and `path:line`, with two controls:
@@ -205,6 +211,8 @@ until it next changes.
 
 Open sessions of the same project pick up each other's changes every 30 seconds.
 
+The settings, and which priority groups are folded, are kept once for every project.
+
 ## Development
 
 ```sh
@@ -217,7 +225,7 @@ claude --plugin-dir .         # a session with this checkout loaded
 | --- | --- |
 | `hooks/register.tsx` | The hooks module: tools, `/issues`, the count, and the files it imports for the store, GitHub, background sessions, layout and the pane (listed in [AGENTS.md](./AGENTS.md#layout)). |
 | `hooks/*.test.ts(x)` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
-| `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus`, `Stored`, `Rule` and `Project` types and the `$.state` contract. |
+| `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus`, `Stored`, `Rule`, `Project` and `Settings` types and the `$.state` contract. |
 
 How to work on it, for people and agents alike, is in [AGENTS.md](./AGENTS.md); branch,
 commit, version and PR conventions in [docs/git_and_pr_conventions.md](./docs/git_and_pr_conventions.md).
