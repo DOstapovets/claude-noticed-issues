@@ -7,7 +7,7 @@ import type { Api } from './context'
 import { createGithubIssue } from './github'
 import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, FOOT_ROWS, headRows, PRIORITIES, projectName, rank } from './layout'
 import type { CardKind } from './layout'
-import { startFeedback, startSession, whereRun } from './sessions'
+import { startAnalysis, startFeedback, startSession, whereRun } from './sessions'
 import { change, loadProjects, toggleGroup } from './store'
 import { listTodo, scanTodos, startTodoSession, TAG_LABELS, todoIssues } from './todos'
 
@@ -341,11 +341,27 @@ export async function renderPane($: Api, e: PaneRender) {
       {found.length > 0 && tabButton('code', `Code ${found.length}${session.todosCut ? '+' : ''}`)}
     </Box>
   )
+  // A comment in the code is on the list by its place or by its title.
+  const listedAs = (issue: Issue) =>
+    list.find(i => i.file === issue.file || i.title.toLowerCase() === issue.title.toLowerCase())
+  const codeCards = todoIssues(found)
+  const unlisted = found.filter((_, i) => !listedAs(codeCards[i]!))
+  // On the Code tab: a session that reads the comments not yet on the list whole and notes their issues.
+  const analyze = colorlessButtons ? (
+    <Button key="analyze" plain label="✦ Analyze" onPress={() => startAnalysis($, unlisted)} />
+  ) : (
+    <Button key="analyze" plain onPress={() => startAnalysis($, unlisted)}>
+      <Text color="claude">{' ✦ Analyze '}</Text>
+    </Button>
+  )
   // Below the groups: Projects, which leads away from this project's list, in a secondary color,
-  // and Feedback, about the plugin itself, at the right.
+  // Analyze on the Code tab, and Feedback, about the plugin itself, at the right.
   const footer = (
     <Box key="footer" justifyContent="space-between" marginTop={1} flexShrink={0}>
-      {others.length > 0 ? tabButton('projects', '⧉ Projects', 'subtle') : <Box />}
+      <Box gap={1}>
+        {others.length > 0 && tabButton('projects', '⧉ Projects', 'subtle')}
+        {current === 'code' && unlisted.length > 0 && analyze}
+      </Box>
       {feedback}
     </Box>
   )
@@ -466,10 +482,10 @@ export async function renderPane($: Api, e: PaneRender) {
   const at = await read($, scrolled)
 
   // A comment in the code: its text, where it is, and a session for it or a place on the list.
-  // Once on the list, by its title, it says so.
+  // Once on the list, by its place or its title, it says so.
   const todoCard = (issue: Issue) => {
     const todo = found[issue.id - 1]!
-    const listed = list.find(i => i.title.toLowerCase() === issue.title.toLowerCase())
+    const listed = listedAs(issue)
 
     return (
       <Box

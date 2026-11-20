@@ -1,6 +1,6 @@
 import { atom, read } from 'claude-code'
 
-import type { Issue } from '../types'
+import type { Issue, Todo } from '../types'
 import { session } from './context'
 import type { Api } from './context'
 import { change } from './store'
@@ -131,6 +131,39 @@ export async function startSetup($: Api) {
   }
 
   return sessionId
+}
+
+// Claude reads the comments whole and notes what they ask for: the line `git grep`
+// finds is only where a comment's tag is, not all it says.
+const analyzePrompt = (found: Todo[]) => [
+  'Turn the TODO, FIXME, HACK and XXX comments listed below into noticed issues with the noticed-issues plugin.',
+  '1. Read each comment whole: open the file at its line and take in the lines of the same comment above and below it, and the code it is about.',
+  '2. Work out what each asks for. A comment over several lines is one issue, comments that ask for the same thing are one, and a comment that no longer applies or asks for nothing is none.',
+  '3. Note each with the `note_issue` tool (`mcp__noticed-issues__note_issue`, load it through ToolSearch): a title that says the problem; `file` set to the comment\'s `path:line` exactly as listed below, the first one for comments taken together; a detail with what the comment says in full, what it is about, and that the comment is to be removed once this is fixed; and the priority its tag suggests (FIXME high, HACK and XXX medium, TODO low) unless the code shows otherwise.',
+  '4. Change no code. At the end, say what you noted, and which comments you left out and why.',
+  '',
+  'The comments, each `path:line`, its tag and the text on that line:',
+  ...found.map(todo => `- ${todo.file}:${todo.line} ${todo.tag}: ${todo.text}`),
+].join('\n')
+
+// Whether `claude --bg` for an analysis is still running, so a second press does not start a second one.
+let analyzing = false
+
+export async function startAnalysis($: Api, found: Todo[]) {
+  if (analyzing || found.length === 0) {
+    return
+  }
+
+  analyzing = true
+  try {
+    const sessionId = await background($, analyzePrompt(found), 'the comments')
+
+    if (sessionId) {
+      await $.ui.toast(`✦ Session ${sessionId} reads ${found.length} comments and notes their issues · claude attach ${sessionId}`)
+    }
+  } finally {
+    analyzing = false
+  }
 }
 
 // Asked once per repository, on its first start: the caller has already kept that it asked.

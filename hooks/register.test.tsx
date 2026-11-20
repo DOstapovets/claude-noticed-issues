@@ -1327,6 +1327,39 @@ test('the Code tab lists the comments in the code, by tag, and puts one on the l
   await ui.unmount()
 })
 
+test('✦ Analyze starts a session that reads the comments not on the list whole and notes their issues', async ($, on) => {
+  const seen = engine(on)
+  seen.grep = GREP
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  // On the list by its place, under a title of its own: its card says so, and it is not analyzed again.
+  await $.tool.call({ tool: NOTE, title: 'Empty input crashes the parser', file: 'src/b.py:10' })
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ key: 'analyze' })).toBeUndefined()
+  await ui.press({ key: 'tab-code' })
+  expect(await ui.find({ type: 'Text', text: 'on the list #1' })).toBeDefined()
+  expect((await ui.find({ key: 'footer' }))?.text).toMatch(/^ ✦ Analyze .* ✎ Feedback $/)
+
+  await ui.press({ key: 'analyze' })
+  expect(seen.argv).toHaveLength(1)
+  expect(seen.argv[0]?.slice(0, 2)).toEqual(['claude', '--bg'])
+  const text = seen.argv[0]?.[2] ?? ''
+  expect(text).toContain('Read each comment whole')
+  expect(text).toContain('mcp__noticed-issues__note_issue')
+  expect(text).toContain('Change no code')
+  expect(text).toContain('- src/a.ts:3 TODO: cache the result')
+  expect(text).toContain('- README.md:5 HACK: keep for now')
+  expect(text).not.toContain('src/b.py:10')
+  expect(seen.toasts.at(-1)).toBe('✦ Session 4b7cb777 reads 2 comments and notes their issues · claude attach 4b7cb777')
+
+  // What the session notes at the comments' places takes them off what is left to analyze.
+  await $.tool.call({ tool: NOTE, title: 'Cache the parsed config', file: 'src/a.ts:3' })
+  await $.tool.call({ tool: NOTE, title: 'Drop the README workaround', file: 'README.md:5' })
+  expect(await ui.find({ key: 'analyze' })).toBeUndefined()
+  await ui.unmount()
+})
+
 test('the Code tab holds 200 comments at most, and none outside a repository', async ($, on) => {
   const seen = engine(on)
   seen.grep = Array.from({ length: 205 }, (_, i) => `a.ts:${i + 1}:// TODO: step ${i + 1}`).join('\n')

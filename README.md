@@ -114,7 +114,12 @@ taken out of the code leaves the tab. The groups are headed by tags: **FIXME**, 
 XXX**, **TODO**. Each card shows the comment's text and `path:line`, with two controls:
 **→ List** notes it as an entry at its group's priority, whose detail asks to remove the
 comment once it is fixed, and **▶ New session** notes it and starts the session for that
-entry. A comment already on the list, by its title, says `on the list #N` instead. The tab
+entry. A comment already on the list, by its `path:line` or its title, says `on the list #N`
+instead. **✦ Analyze**, in the footer while some comment is not on the list yet, starts a
+background session with those comments' places: Claude reads each comment whole, over all
+its lines and with the code it is about, and notes what it asks for with `note_issue`, one
+entry for a comment over several lines or for comments that ask the same thing, none for one
+that no longer applies, each at the comment's `path:line`. It changes no code. The tab
 holds the first 200 and reads `Code 200+` when there are more.
 
 **Outside the terminal** (VS Code, the desktop app, the mobile app) each group takes
