@@ -46,7 +46,7 @@ Call `resolve_issue` once such an issue is fixed.
 | Tool | What it does |
 | --- | --- |
 | `note_issue` | Adds an entry: `title` (required), `detail`, `file` (`path[:line]`, a URL or a resource) and `priority` (`high`, `medium` or `low`; `medium` when left out). A field longer than its limit is cut, and the answer says so: `title` to 200 characters, `file` to 500, `detail` to 4000. An entry with the same title, ignoring case, is not added twice. A note like one on the list (half the title's words or more in common, or the same file at any line) is not added either: the answer names up to three such entries, and Claude calls again with `duplicateOf` (the detail goes to that entry, its file is filled in if it had none, its priority raised if the new one is higher) or with `force` (a new entry all the same). |
-| `resolve_issue` | Removes an entry by its `id` once it is fixed or no longer relevant. |
+| `resolve_issue` | Moves an entry, by its `id`, off the list to the **Completed** tab once it is fixed or no longer relevant. |
 | `save_issue_rule` | Saves the [repository rule](#repository-rule), `rule`, cut to 4000 characters. Behind ToolSearch, as only the setup session calls it. |
 
 **A count above the prompt**, `⚑ 3 issues`, that opens the pane when pressed. Once the
@@ -66,7 +66,10 @@ many cards are above, `▾ High 5 ↑ 2 above`. Which groups are folded is remem
 sessions and projects. Once the current session has noted something, two tabs sit at
 the top of the pane, **This session 2** and **All 5**: the first shows only the entries
 this session noted. The tab goes away again when none of them are left, and the pane
-then shows every entry. Within a group the newest entry comes first. Each entry is a card with its number and
+then shows every entry. Once an entry is resolved, or closed on GitHub, a **✓ Completed 3**
+tab follows **All**: its cards are read only and say, at the top right, when the entry was
+resolved, `✓ 2h ago`. They stay there for the days chosen in **⚙ Settings**, 7 at first.
+An entry deleted with ✕ does not go there. Within a group the newest entry comes first. Each entry is a card with its number and
 title in bold and, at the top right, when it was noted: `just now`, `5m ago`, `3h ago`,
 then after a day the date and time, `06.11 14:05`. Below the title, dimmed, come the
 file on one line (shortened in the middle when it does not fit) and the detail cut to
@@ -108,7 +111,9 @@ every 30 seconds.
 
 **Settings.** **⚙ Settings**, in the footer's secondary color, shows the settings in
 place of the groups, with the tabs above to lead back. They are the same in every
-project and kept across sessions. For now there is one section, **Experimental**, for
+project and kept across sessions. **Completed** chooses how long a resolved entry stays
+on the Completed tab: **Off** (it leaves at once), **1 day**, **7 days** (the default) or
+**30 days**; a shorter choice drops the older ones at once. **Experimental** is for
 what may change or go away in a later version: **[ ] Code tab** switches the Code tab
 below on or off, and is off until you switch it on.
 
@@ -182,7 +187,7 @@ issue is filed, on `/noticely`, and every 5 minutes after that. Entries without 
 cost nothing. When `gh` does not answer, the last known status stays.
 
 When the GitHub issue is **closed**, as completed or as not planned, the entry is
-removed from the list and a toast says `✓ closed on GitHub, removed: #1`. This is
+moved to the Completed tab and a toast says `✓ closed on GitHub, completed: #1`. This is
 final: if the issue is reopened, the entry does not come back.
 
 Requires the [GitHub CLI](https://cli.github.com), signed in with `gh auth login`,

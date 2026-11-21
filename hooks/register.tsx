@@ -8,7 +8,7 @@ import { onGithub, refreshGithub } from './github'
 import { arrange, cardColumnsOf, clip, count, firstCard, FOOT_ROWS, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
 import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
-import { addIssue, adoptOldStore, change, COLLAPSED_KEY, load, loadProjects, migrate, SETTINGS_KEY, similar } from './store'
+import { addIssue, adoptOldStore, change, COLLAPSED_KEY, complete, load, loadProjects, migrate, SETTINGS_KEY, similar } from './store'
 import { scanTodos } from './todos'
 
 const PANE = 'noticely'
@@ -59,10 +59,11 @@ export const register: Register = (on, options) => {
     if (repo) {
       await migrate($, repo.root)
     }
-    const list = await load($)
-    await loadProjects($)
+    // The settings first: how many days resolved issues are kept decides what `load` keeps of them.
     const saved = (await $.store.get(SETTINGS_KEY)) as Settings | undefined
     await update($, settings, () => saved ?? {})
+    const list = await load($)
+    await loadProjects($)
     void scanTodos($)
     const folded = (await $.store.get(COLLAPSED_KEY)) as Priority[] | undefined
     await update($, collapsed, () => folded ?? [])
@@ -244,11 +245,7 @@ export const register: Register = (on, options) => {
       return { result: 'Not resolved: `id` must be an issue number.' }
     }
 
-    let found = false
-    await change($, list => {
-      found = list.some(i => i.id === id)
-      return list.filter(i => i.id !== id)
-    })
+    const found = (await complete($, new Set([id]))).length > 0
 
     return { result: found ? `Resolved #${id}.` : `No open issue #${id}.` }
   })

@@ -1,20 +1,22 @@
 import { atom, read, update } from 'claude-code'
 import type { Frozen, MatchedEvent, RenderSurface } from 'claude-code'
 
-import type { Issue, Priority, Project, Tab } from '../types'
+import type { Issue, Priority, Project, Settings, Tab } from '../types'
 import { session } from './context'
 import type { Api } from './context'
 import { createGithubIssue } from './github'
 import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, FOOT_ROWS, headRows, PRIORITIES, projectName, rank } from './layout'
 import type { CardKind } from './layout'
 import { startFeedback, startSession, whereRun } from './sessions'
-import { change, loadProjects, toggleGroup } from './store'
+import { change, KEEP_DAYS, loadProjects, setKeepDays, toggleGroup } from './store'
 import { listTodo, scanTodos, startTodoSession, TAG_LABELS, todoIssues, toggleTodos } from './todos'
 
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads or writes it, so this module names the atoms it uses; types/index.d.ts
 // declares them once.
 const issues = atom({ plugin: 'noticely', key: 'issues' } as const, [])
+// This project's resolved issues, kept for the Completed tab.
+const completed = atom({ plugin: 'noticely', key: 'completed' } as const, [])
 // The priority groups folded in the pane, the same in every project.
 const collapsed = atom({ plugin: 'noticely', key: 'collapsed' } as const, [])
 // The pane's tab, for this session only.
@@ -68,11 +70,13 @@ async function shiftPriority($: Api, id: number, step: -1 | 1) {
 }
 
 // What the pane lists: every issue, this session's on its tab, offered only
-// while this session has noted something, or on the Projects tab, offered while
-// another project has a list, the issues of the project open there. The settings
+// while this session has noted something, the resolved ones still kept on theirs,
+// or on the Projects tab, offered while another project has a list, the issues of
+// the project open there. The settings
 // list none, and show the tabs, which lead back.
 export async function view($: Api) {
   const list = await read($, issues)
+  const done = await read($, completed)
   const others = await read($, projects)
   const sessionId = await $.session.id()
   const mine = list.filter(issue => issue.noticedIn === sessionId)
@@ -80,6 +84,7 @@ export async function view($: Api) {
   const chosen = await read($, tab)
   const current: Tab =
     (chosen === 'session' && mine.length === 0) ||
+    (chosen === 'completed' && done.length === 0) ||
     (chosen === 'code' && found.length === 0) ||
     (chosen === 'projects' && others.length === 0)
       ? 'all'
@@ -89,18 +94,20 @@ export async function view($: Api) {
   const shown =
     current === 'session'
       ? mine
-      : current === 'code'
-        ? todoIssues(found)
-        : current === 'projects'
-          ? (opened?.items ?? [])
-          : current === 'settings'
-            ? []
-            : list
-  const kind: CardKind = opened ? 'readOnly' : current === 'code' ? 'code' : 'own'
+      : current === 'completed'
+        ? done
+        : current === 'code'
+          ? todoIssues(found)
+          : current === 'projects'
+            ? (opened?.items ?? [])
+            : current === 'settings'
+              ? []
+              : list
+  const kind: CardKind = opened ? 'readOnly' : current === 'completed' ? 'done' : current === 'code' ? 'code' : 'own'
 
-  const hasTabs = mine.length > 0 || found.length > 0 || current === 'settings'
+  const hasTabs = mine.length > 0 || done.length > 0 || found.length > 0 || current === 'settings'
 
-  return { list, mine, others, todos: found, hasTabs, current, opened, shown, kind }
+  return { list, mine, done, others, todos: found, hasTabs, current, opened, shown, kind }
 }
 
 // Each tab, and each project opened on the Projects tab, starts at the top of its groups.
@@ -128,6 +135,9 @@ async function openProject($: Api, root: string | null) {
 // lines, in lines; VS Code draws a fraction of one.
 const CARD_PADDING_Y = 0.5
 const CARD_ROW_GAP = 0.3
+
+// The days the settings offer to keep resolved issues for; 0 removes them at once.
+const KEEP_CHOICES = [0, 1, 7, 30]
 
 async function remove($: Api, id: number) {
   await change($, list => list.filter(i => i.id !== id))
@@ -170,8 +180,8 @@ export async function renderPane($: Api, e: PaneRender) {
   const now = await read($, minute)
   // The session tab is offered only while this session has noted something, the
   // Projects tab while another project has a list; there a project's cards are read only.
-  const { mine, others, todos: found, hasTabs, current, opened, shown, kind } = await view($)
-  const readOnly = opened !== undefined
+  const { mine, done, others, todos: found, hasTabs, current, opened, shown, kind } = await view($)
+  const readOnly = opened !== undefined || kind === 'done'
   const confirming = kind === 'own' ? await read($, deleting) : null
 
   // The card's top right corner: when it was noted, and a red ✕, which asks once before it deletes.
@@ -179,7 +189,12 @@ export async function renderPane($: Api, e: PaneRender) {
   // text beside them: there the corner's parts are a character apart.
   const cornerRow = space ? { columnGap: 1, alignItems: 'center' as const } : {}
   const corner = (issue: Issue) =>
-    readOnly ? (
+    kind === 'done' ? (
+      <Box flexShrink={0} marginLeft={1}>
+        <Text color="success">✓ </Text>
+        <Text dimColor>{age(issue.resolvedAt ?? issue.createdAt, now)}</Text>
+      </Box>
+    ) : readOnly ? (
       <Box flexShrink={0} marginLeft={1}>
         <Text dimColor>{age(issue.createdAt, now)}</Text>
       </Box>
@@ -351,6 +366,7 @@ export async function renderPane($: Api, e: PaneRender) {
     <Box gap={1}>
       {mine.length > 0 && tabButton('session', `This session ${mine.length}`)}
       {tabButton('all', `All ${list.length}`)}
+      {done.length > 0 && tabButton('completed', `✓ Completed ${done.length}`)}
       {found.length > 0 && tabButton('code', `Code ${found.length}${session.todosCut ? '+' : ''}`)}
     </Box>
   )
@@ -366,11 +382,29 @@ export async function renderPane($: Api, e: PaneRender) {
     </Box>
   )
 
-  // The settings, in place of the groups: for now only the experimental ones, each a switch with what it does below.
-  const { todos: todosOn } = await read($, settings)
+  // The settings, in place of the groups: how long resolved issues are kept, one choice of a row,
+  // then the experimental ones, each a switch with what it does below.
+  const chosen: Settings = await read($, settings)
+  const { todos: todosOn, keepDays = KEEP_DAYS } = chosen
   const settingsView = current === 'settings' && (
     <Box key="settings" flexDirection="column" flexShrink={0}>
-      <Text bold>Experimental</Text>
+      <Text bold>Completed</Text>
+      <Box gap={2}>
+        {KEEP_CHOICES.map(days => (
+          <Button
+            key={`setting-keep-${days}`}
+            plain
+            label={`${keepDays === days ? '(•)' : '( )'} ${days === 0 ? 'Off' : days === 1 ? '1 day' : `${days} days`}`}
+            onPress={() => setKeepDays($, days)}
+          />
+        ))}
+      </Box>
+      <Text dimColor wrap="wrap">
+        How long a resolved issue, or one closed on GitHub, stays on the Completed tab.
+      </Text>
+      <Box marginTop={1}>
+        <Text bold>Experimental</Text>
+      </Box>
       <Text dimColor wrap="wrap">
         May change or go away in a later version.
       </Text>
@@ -495,7 +529,7 @@ export async function renderPane($: Api, e: PaneRender) {
   const listsProjects = current === 'projects' && !opened
 
   const bodyRows = e.props.scroll.bodyRows
-  const groups = arrange(shown, await read($, collapsed), headRows(hasTabs, readOnly), bodyRows - FOOT_ROWS, cardColumns, confirming, now, kind)
+  const groups = arrange(shown, await read($, collapsed), headRows(hasTabs, opened !== undefined), bodyRows - FOOT_ROWS, cardColumns, confirming, now, kind)
   const at = await read($, scrolled)
 
   // A comment in the code: its text, where it is, and a session for it or a place on the list.
@@ -595,7 +629,7 @@ export async function renderPane($: Api, e: PaneRender) {
         </Box>
       )}
       {hasTabs && <Box marginBottom={1}>{tabs}</Box>}
-      {current !== 'projects' && current !== 'code' && current !== 'settings' && list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
+      {(current === 'all' || current === 'session') && list.length === 0 && <Text dimColor>Nothing noticed in this project.</Text>}
       {listsProjects &&
         projectRow(
           { root: session.storeKey.slice('issues:'.length), ...(session.remote ? { remote: session.remote } : {}), items: list },

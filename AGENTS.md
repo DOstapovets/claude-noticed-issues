@@ -103,13 +103,13 @@ and say in the PR that you did.
 
 - `$.store`, which lasts across sessions: one list per repository under
   `issues:<main worktree root>` (`issues:<cwd>` outside a repository), with its
-  `remote` and `updatedAt`, the repository's rule under `rule:<same root>` (when the
+  `remote`, `updatedAt` and `done` (the resolved issues kept for the Completed tab, `keepDays` in the settings), the repository's rule under `rule:<same root>` (when the
   setup was offered and the text it saved, added to each conversation by
   `prompt.context`), the folded groups under `collapsed`, and the settings under `settings`
   (the experimental Code tab, off unless `todos` is true), and under `adoptedFrom` the
   store files of the former names, `noticed-issues` and `notifly`, that `adoptOldStore` copied once. The
   Projects tab reads every other `issues:` key.
-- `$.state`, which lasts for the session and is mirrored for drawing: the list, the
+- `$.state`, which lasts for the session and is mirrored for drawing: the list, the resolved issues kept, the
   folded groups, the settings, the tab, the comments `git grep` found in the code, the other projects' lists and the one open on their tab, the card that asks to confirm a delete, where each group is
   scrolled, and the minute a card's age is told from. Each value is declared in
   `types/index.d.ts`.

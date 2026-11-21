@@ -14,16 +14,20 @@ export type Issue = {
   githubUrl?: string
   /** That GitHub issue's status, as `gh issue view` last reported it; once it is closed the issue is removed. */
   github?: GithubStatus
+  /** When it was resolved, or closed on GitHub: set only on an issue kept on the Completed tab. */
+  resolvedAt?: number
 }
 
 export type Priority = 'high' | 'medium' | 'low'
 
-export type Tab = 'all' | 'session' | 'code' | 'projects' | 'settings'
+export type Tab = 'all' | 'session' | 'completed' | 'code' | 'projects' | 'settings'
 
 /** What `$.store` keeps under `settings`, the same in every project. */
 export type Settings = {
   /** Whether the experimental Code tab lists the comments in the code; absent is off. */
   todos?: boolean
+  /** How many days a resolved issue stays on the Completed tab; absent is 7, 0 removes it at once. */
+  keepDays?: number
 }
 
 /** A TODO, FIXME, HACK or XXX comment in the code, as `git grep` last found it: kept for the session only. */
@@ -46,6 +50,8 @@ export type GithubStatus = {
 export type Stored = {
   nextId: number
   items: Issue[]
+  /** The issues resolved within the last `keepDays` days, for the Completed tab; absent on lists from before 0.26. */
+  done?: Issue[]
   /** The repository's `origin`, as the session that last changed the list saw it; absent outside a repository and on lists from before 0.22. */
   remote?: string
   /** When the list last changed; absent on lists from before 0.22. */
@@ -74,9 +80,11 @@ declare module 'claude-code' {
     'noticely': {
       /** This project's open issues, mirrored from `$.store`. */
       issues: Issue[]
+      /** This project's resolved issues still kept, mirrored from `$.store` (`done`). */
+      completed: Issue[]
       /** The priority groups folded in the pane, mirrored from `$.store` (`collapsed`). */
       collapsed: Priority[]
-      /** The pane's tab: every issue, only those this session noted, the comments in the code, the other projects, or the settings. */
+      /** The pane's tab: every issue, only those this session noted, the resolved ones, the comments in the code, the other projects, or the settings. */
       tab: Tab
       /** The settings, mirrored from `$.store` (`settings`). */
       settings: Settings

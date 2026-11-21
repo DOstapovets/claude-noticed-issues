@@ -3,7 +3,7 @@ import { atom, read } from 'claude-code'
 import type { GithubStatus, Issue } from '../types'
 import { session } from './context'
 import type { Api } from './context'
-import { change } from './store'
+import { change, complete } from './store'
 
 // Named here as well as in register.tsx: the engine's scan reads a `$.state`
 // value only from a const of the file that reads it.
@@ -114,10 +114,9 @@ export async function refreshGithub($: Api) {
 
   // Closed on GitHub, as completed or as not planned: nothing is left to notice.
   const closed = new Set([...statuses].filter(([, status]) => status.state === 'CLOSED').map(([id]) => id))
-  await change($, list =>
-    list.filter(i => !closed.has(i.id)).map(i => (statuses.has(i.id) ? { ...i, github: statuses.get(i.id) } : i)),
-  )
-  if (closed.size > 0) {
-    await $.ui.toast(`✓ closed on GitHub, removed: ${[...closed].map(id => `#${id}`).join(', ')}`)
+  await change($, list => list.map(i => (statuses.has(i.id) ? { ...i, github: statuses.get(i.id) } : i)))
+  const done = closed.size > 0 ? await complete($, closed) : []
+  if (done.length > 0) {
+    await $.ui.toast(`✓ closed on GitHub, completed: ${done.map(id => `#${id}`).join(', ')}`)
   }
 }

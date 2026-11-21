@@ -1,43 +1,65 @@
-import { atom, update } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 
-import type { Issue, Priority, Project, Stored } from '../types'
-import { session } from './context'
+import type { Issue, Priority, Project, Settings, Stored } from '../types'
+import { MINUTE, session } from './context'
 import type { Api } from './context'
 
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads or writes it, so each module names the atoms it uses; types/index.d.ts
 // declares them once.
 const issues = atom({ plugin: 'noticely', key: 'issues' } as const, [])
+// This project's resolved issues, kept for the Completed tab.
+const completed = atom({ plugin: 'noticely', key: 'completed' } as const, [])
 // The priority groups folded in the pane, the same in every project.
 const collapsed = atom({ plugin: 'noticely', key: 'collapsed' } as const, [])
 export const COLLAPSED_KEY = 'collapsed'
 // The settings, the same in every project.
 export const SETTINGS_KEY = 'settings'
+const settings = atom({ plugin: 'noticely', key: 'settings' } as const, {})
+// How long a resolved issue stays on the Completed tab when the settings do not say.
+export const KEEP_DAYS = 7
+const DAY = 24 * 60 * MINUTE
 // Every other project's list, for the pane's Projects tab.
 const projects = atom({ plugin: 'noticely', key: 'projects' } as const, [])
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.
 
+// The resolved issues still within the days the settings keep them.
+async function kept($: Api, done: Issue[]) {
+  const chosen: Settings = await read($, settings)
+  const since = (await $.clock.now()) - (chosen.keepDays ?? KEEP_DAYS) * DAY
+  return done.filter(i => (i.resolvedAt ?? 0) > since)
+}
+
 // Called only after `load`, which took the stored `nextId` up into this one: it never goes back.
-async function save($: Api, list: Issue[]) {
+async function save($: Api, list: Issue[], done: Issue[]) {
+  const left = await kept($, done)
   await update($, issues, () => list)
+  await update($, completed, () => left)
   const stored: Stored = {
     nextId: session.nextId,
     items: list,
+    ...(left.length > 0 ? { done: left } : {}),
     ...(session.remote ? { remote: session.remote } : {}),
     updatedAt: await $.clock.now(),
   }
   await $.store.set(session.storeKey, stored)
 }
 
-export async function load($: Api) {
+async function loadBoth($: Api) {
   const stored = (await $.store.get(session.storeKey)) as Stored | undefined
   session.nextId = Math.max(session.nextId, stored?.nextId ?? 1)
   const list = Array.isArray(stored?.items) ? stored.items : []
+  const done = await kept($, Array.isArray(stored?.done) ? stored.done : [])
   await update($, issues, () => list)
+  await update($, completed, () => done)
 
-  return list
+  return { list, done }
+}
+
+export async function load($: Api) {
+  return (await loadBoth($)).list
 }
 
 // This session's changes, one at a time: parallel tool calls, a press in the pane
@@ -56,7 +78,28 @@ function serial<T>(run: () => Promise<T>) {
 // two sessions writing in the same moment can still lose one change; that window
 // is accepted.
 export async function change($: Api, fn: (list: Issue[]) => Issue[]) {
-  return serial(async () => save($, fn(await load($))))
+  return serial(async () => {
+    const { list, done } = await loadBoth($)
+    await save($, fn(list), done)
+  })
+}
+
+// The issues of `ids` that are on the list leave it for the Completed tab; their ids are returned.
+export async function complete($: Api, ids: Set<number>) {
+  const resolvedAt = await $.clock.now()
+  return serial(async () => {
+    const { list, done } = await loadBoth($)
+    const leaving = list.filter(i => ids.has(i.id))
+    await save($, list.filter(i => !ids.has(i.id)), [...leaving.map(i => ({ ...i, resolvedAt })), ...done])
+    return leaving.map(i => i.id)
+  })
+}
+
+// How many days resolved issues are kept, the same in every project; fewer drops the older ones now.
+export async function setKeepDays($: Api, days: number) {
+  const next: Settings = await update($, settings, was => ({ ...was, keepDays: days }))
+  await $.store.set(SETTINGS_KEY, next)
+  await change($, list => list)
 }
 
 // A new issue at the next number, noted by this session, unless one with the
@@ -65,7 +108,7 @@ export async function addIssue($: Api, fields: Pick<Issue, 'title' | 'detail' | 
   const createdAt = await $.clock.now()
   const noticedIn = await $.session.id()
   const added = await serial(async () => {
-    const list = await load($)
+    const { list, done } = await loadBoth($)
     const same = list.find(i => i.title.toLowerCase() === fields.title.toLowerCase())
 
     if (same) {
@@ -75,7 +118,7 @@ export async function addIssue($: Api, fields: Pick<Issue, 'title' | 'detail' | 
     const { title, ...rest } = fields
     const issue: Issue = { id: session.nextId, title, createdAt, noticedIn, ...rest }
     session.nextId += 1
-    await save($, [...list, issue])
+    await save($, [...list, issue], done)
 
     return { issue, isNew: true }
   })

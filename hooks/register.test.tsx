@@ -355,6 +355,63 @@ test('an issue is resolved only by its number', async ($, on) => {
   expect(await flag($)).toBe('⚑ 1 issue · 1 this session')
 })
 
+test('a resolved issue leaves the list for the Completed tab, read only', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+  await $.tool.call({ tool: NOTE, title: 'Jest gate red on master' })
+
+  // No tab until something is resolved; deleting with ✕ does not count.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ key: 'tab-completed' })).toBeUndefined()
+  await $.tool.call({ tool: RESOLVE, id: 1 })
+  expect(await flag($)).toBe('⚑ 1 issue · 1 this session')
+  expect((await ui.find({ key: 'tab-completed' }))?.text.trim()).toBe('✓ Completed 1')
+  expect(seen.store.get('issues:/proj/a').done.map((i: { id: number; resolvedAt: number }) => [i.id, i.resolvedAt])).toEqual([[1, 1_000]])
+
+  // Read only, told by when it was resolved.
+  await ui.press({ key: 'tab-completed' })
+  expect(await lines(ui)).toEqual(['▾ Medium 1', '#1 Stale playwright cache'])
+  expect(await ui.find({ key: 'delete-1' })).toBeUndefined()
+  expect(await ui.find({ key: 'session-1' })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: 'just now' })).toBeDefined()
+
+  await ui.unmount()
+})
+
+test('the Completed tab keeps a resolved issue for the days chosen in Settings, seven at first', async ($, on) => {
+  const DAY = 24 * 60 * 60_000
+  const now = 40 * DAY
+  const done = (id: number, daysAgo: number) => ({ id, title: `Done ${id}`, createdAt: 1, resolvedAt: now - daysAgo * DAY })
+  const seen = engine(on, {
+    'issues:/proj/a': { nextId: 5, items: [], done: [done(1, 0.5), done(2, 3), done(3, 6.9), done(4, 7.1)] },
+  })
+  // Moved before the session starts its timers: days of ticks on the way would take seconds.
+  await seen.clock.set(now)
+  await $.session.start(start('/proj/a'))
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ key: 'tab-completed' }))?.text.trim()).toBe('✓ Completed 3')
+  await ui.press({ key: 'tab-settings' })
+  expect((await ui.find({ key: 'setting-keep-7' }))?.text).toBe('(•) 7 days')
+
+  // A shorter choice drops the older ones at once, and is kept for every project.
+  await ui.press({ key: 'setting-keep-1' })
+  expect(seen.store.get('settings')).toEqual({ keepDays: 1 })
+  expect((await ui.find({ key: 'setting-keep-1' }))?.text).toBe('(•) 1 day')
+  expect((await ui.find({ key: 'tab-completed' }))?.text.trim()).toBe('✓ Completed 1')
+  expect(seen.store.get('issues:/proj/a').done.map((i: { id: number }) => i.id)).toEqual([1])
+
+  // Off: what was kept goes, and a resolved issue leaves at once, as before.
+  await ui.press({ key: 'setting-keep-0' })
+  expect(await ui.find({ key: 'tab-completed' })).toBeUndefined()
+  await $.tool.call({ tool: NOTE, title: 'Dead link in README' })
+  await $.tool.call({ tool: RESOLVE, id: 5 })
+  expect(await ui.find({ key: 'tab-completed' })).toBeUndefined()
+  expect(seen.store.get('issues:/proj/a').done).toBeUndefined()
+  await ui.unmount()
+})
+
 test('the count above the prompt opens the pane', async ($, on) => {
   const seen = engine(on)
   await $.session.start(start('/proj/a'))
@@ -471,6 +528,8 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', G
   await seen.clock.settle()
   expect(await flag($)).toBe('⚑ 2 issues')
   expect(seen.toasts.at(-1)).toContain('#1')
+  // It goes to the Completed tab, as a resolved one does.
+  expect(seen.store.get('issues:/proj/a').done.map((i: { id: number }) => i.id)).toEqual([1])
 
   // And by itself every five minutes: the other one closed as done.
   seen.github = { state: 'CLOSED', projectItems: [{ status: { name: '✅ Done' }, title: 'Roadmap' }] }

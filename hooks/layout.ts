@@ -135,23 +135,26 @@ export const clipRows = (value: string, width: number, rows: number) => {
   return clip(value, max)
 }
 
-// Which card: one of this project's issues, another project's, read only, or a comment in the code.
-export type CardKind = 'own' | 'readOnly' | 'code'
+// Which card: one of this project's issues, another project's, read only, a resolved one, read
+// only too and told by when it was resolved, or a comment in the code.
+export type CardKind = 'own' | 'readOnly' | 'done' | 'code'
 
 // The rows a card takes with `columns` inside its border. A plugin cannot
 // measure what it drew, so a group's rows are worked out from these. Another
 // project's card is read only: no ✕ in its corner and no row of controls. A
 // comment's has no corner and no number, only its text.
 export const cardRows = (issue: Issue, columns: number, isConfirming: boolean, now: number, kind: CardKind = 'own') => {
-  // The corner beside the heading, and a column before it: `5m ago  ✕ `, `Delete? ✓ ↩ ` or `5m ago`.
+  // The corner beside the heading, and a column before it: `5m ago  ✕ `, `Delete? ✓ ↩ `, `5m ago` or `✓ 5m ago`.
   const corner =
     kind === 'code'
       ? 0
-      : kind === 'readOnly'
-        ? 1 + age(issue.createdAt, now).length
-        : isConfirming
-          ? 14
-          : 5 + age(issue.createdAt, now).length
+      : kind === 'done'
+        ? 3 + age(issue.resolvedAt ?? issue.createdAt, now).length
+        : kind === 'readOnly'
+          ? 1 + age(issue.createdAt, now).length
+          : isConfirming
+            ? 14
+            : 5 + age(issue.createdAt, now).length
   const head = Math.max(1, columns - corner)
   const title =
     kind === 'code'
@@ -162,7 +165,7 @@ export const cardRows = (issue: Issue, columns: number, isConfirming: boolean, n
   const detail = issue.detail ? wrappedRows(clipRows(issue.detail, columns, DETAIL_LINES), columns) : 0
 
   // With the border's two rows, the controls' row and the blank row below the card.
-  return title + (issue.file ? 1 : 0) + detail + (kind === 'readOnly' ? 3 : 4)
+  return title + (issue.file ? 1 : 0) + detail + (kind === 'readOnly' || kind === 'done' ? 3 : 4)
 }
 
 // A project's name: `owner/repo` from its remote, else its directory's.
