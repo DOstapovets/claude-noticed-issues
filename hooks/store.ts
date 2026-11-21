@@ -94,6 +94,12 @@ export async function loadProjects($: Api) {
   return found
 }
 
+// A list written before 0.4 is read as found: what is not an issue with a title and a number is left out.
+function issuesOf(stored: Stored | undefined) {
+  const items: unknown[] = Array.isArray(stored?.items) ? stored.items : []
+  return items.filter((i): i is Issue => typeof (i as Issue)?.title === 'string' && Number.isInteger((i as Issue).id))
+}
+
 async function commonDir($: Api, dir: string) {
   const ran = await $.process
     .run(['git', '-C', dir, 'rev-parse', '--path-format=absolute', '--git-common-dir'])
@@ -115,8 +121,9 @@ export async function migrate($: Api, root: string) {
   }
 
   const stored = (await $.store.get(session.storeKey)) as Stored | undefined
-  const items = [...(stored?.items ?? [])]
-  let next = stored?.nextId ?? 1
+  const items = issuesOf(stored)
+  // Past every number on the list too, so a folded issue never takes one already in use.
+  let next = Math.max(typeof stored?.nextId === 'number' ? stored.nextId : 1, ...items.map(i => i.id + 1))
   const folded: string[] = []
 
   for (const key of nested) {
@@ -127,7 +134,7 @@ export async function migrate($: Api, root: string) {
       continue
     }
 
-    for (const issue of ((await $.store.get(key)) as Stored | undefined)?.items ?? []) {
+    for (const issue of issuesOf((await $.store.get(key)) as Stored | undefined)) {
       if (!items.some(i => i.title.toLowerCase() === issue.title.toLowerCase())) {
         items.push({ ...issue, id: next })
         next += 1
@@ -140,7 +147,8 @@ export async function migrate($: Api, root: string) {
     return
   }
 
-  const merged: Stored = { nextId: next, items }
+  const remote = stored?.remote ?? session.remote
+  const merged: Stored = { nextId: next, items, ...(remote ? { remote } : {}), updatedAt: await $.clock.now() }
   await $.store.set(session.storeKey, merged)
   for (const key of folded) {
     await $.store.delete(key)

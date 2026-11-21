@@ -202,7 +202,7 @@ In the plugin's own store, one list per repository, keyed by the root of its mai
 working tree. Every worktree of a repository sees the same list; a separate repository
 nested inside it has its own. Outside a repository, the session's directory is the key.
 Lists that versions before 0.4 kept per worktree are folded into the repository's list
-on first start.
+on first start, keeping its remote; an entry there with no title or number is left out.
 
 Each list also keeps the repository's `origin` remote and when it last changed,
 written with every change from 0.22 on, so the Projects tab of another project can

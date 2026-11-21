@@ -1155,6 +1155,65 @@ test('worktrees share the repository list, and their old lists fold into it', as
   expect(await flag($)).toBe('⚑ 1 issue')
 })
 
+test('folding old lists keeps the remote, marks the change and starts again from nothing', async ($, on) => {
+  const seen = engine(on, {
+    'issues:/repo': { nextId: 2, items: [{ id: 1, title: 'Leaked key', createdAt: 1 }], remote: 'git@github.com:o/old.git', updatedAt: 5 },
+    'issues:/repo/a': { nextId: 2, items: [{ id: 1, title: 'From a', createdAt: 2 }] },
+    'issues:/repo/b': { nextId: 2, items: [{ id: 1, title: 'From b', createdAt: 3, sessionId: 'abcd1234' }] },
+  })
+  seen.repo = '/repo'
+  seen.remote = 'git@github.com:o/r.git'
+  seen.git = { '/repo': '/repo/.git', '/repo/a': '/repo/.git', '/repo/b': '/repo/.git' }
+  await seen.clock.set(9_000)
+
+  await $.session.start(start('/repo'))
+  const merged = seen.store.get('issues:/repo')
+  expect(merged.remote).toBe('git@github.com:o/old.git')
+  expect(merged.updatedAt).toBe(9_000)
+  expect(merged.nextId).toBe(4)
+  expect(merged.items.map((i: { id: number; title: string }) => `${i.id} ${i.title}`)).toEqual(['1 Leaked key', '2 From a', '3 From b'])
+  expect(merged.items[2].sessionId).toBe('abcd1234')
+
+  // Run again, nothing is left to fold and nothing changes.
+  await seen.clock.set(10_000)
+  await $.session.start(start('/repo'))
+  expect(seen.store.get('issues:/repo')).toEqual(merged)
+})
+
+test('folding into a repository with no list yet takes the session\'s remote', async ($, on) => {
+  const seen = engine(on, { 'issues:/repo/a': { nextId: 3, items: [{ id: 2, title: 'From a', createdAt: 2 }] } })
+  seen.repo = '/repo'
+  seen.remote = 'git@github.com:o/r.git'
+  seen.git = { '/repo': '/repo/.git', '/repo/a': '/repo/.git' }
+
+  await $.session.start(start('/repo'))
+  expect(seen.store.get('issues:/repo')).toEqual({
+    nextId: 2,
+    items: [{ id: 1, title: 'From a', createdAt: 2 }],
+    remote: 'git@github.com:o/r.git',
+    updatedAt: 1_000,
+  })
+})
+
+test('a damaged old list folds what is readable of it and the session still starts', async ($, on) => {
+  const seen = engine(on, {
+    // A number at or past nextId, which a folded issue must not take.
+    'issues:/repo': { nextId: 2, items: [{ id: 5, title: 'Kept', createdAt: 1 }] },
+    'issues:/repo/a': { nextId: 2, items: 'not a list' },
+    'issues:/repo/b': { items: [null, { id: 1 }, { title: 'No number' }, { id: 2, title: 'Readable', createdAt: 2 }] },
+  })
+  seen.repo = '/repo'
+  seen.git = { '/repo': '/repo/.git', '/repo/a': '/repo/.git', '/repo/b': '/repo/.git' }
+
+  await $.session.start(start('/repo'))
+  expect(await flag($)).toBe('⚑ 2 issues')
+  const merged = seen.store.get('issues:/repo')
+  expect(merged.items.map((i: { id: number; title: string }) => `${i.id} ${i.title}`)).toEqual(['5 Kept', '6 Readable'])
+  expect(merged.nextId).toBe(7)
+  expect(seen.store.get('issues:/repo/a')).toBeUndefined()
+  expect(seen.store.get('issues:/repo/b')).toBeUndefined()
+})
+
 test('outside a repository the list is the directory\'s', async ($, on) => {
   engine(on, { 'issues:/scratch': { nextId: 3, items: [{ id: 2, title: 'Loose note', createdAt: 1 }] } })
   await $.session.start(start('/scratch'))
