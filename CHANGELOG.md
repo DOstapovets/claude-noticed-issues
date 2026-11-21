@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.25.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.24.0...v0.25.0) (2026-11-21)
+
+
+### Features
+
+* ⚙ Settings beside Feedback, where the Code tab is switched on as experimental ([9c3b021](https://github.com/DOstapovets/claude-noticed-issues/commit/9c3b021ac6817377144fa0e35560047dbeaaa9e5))
+* a card's ⎘ Copy puts the issue on the clipboard to paste into a prompt ([f93431a](https://github.com/DOstapovets/claude-noticed-issues/commit/f93431aa2a165b25519196afbd61bd6d41e2824f))
+* the projects on the Projects tab stand a blank row apart ([2609195](https://github.com/DOstapovets/claude-noticed-issues/commit/2609195ca09e0ff28cf5f7d434ae4f7251c84713))
+
+
+### Bug Fixes
+
+* ▶ starts no second session for an issue that already has one ([9ef0ec2](https://github.com/DOstapovets/claude-noticed-issues/commit/9ef0ec25e590e05f14dc71b9ea6d72840a83447c))
+* a project with no issues left is dim in the Projects list, its name too ([6fa41dd](https://github.com/DOstapovets/claude-noticed-issues/commit/6fa41dd656f87521d478a30100a8a0f18a51aeaf))
+* folding the old per-worktree lists keeps the remote and skips damaged entries ([35fcf3b](https://github.com/DOstapovets/claude-noticed-issues/commit/35fcf3bb98a9c2fceceee86a8ac64dec41d5ed6b))
+* issues noted at the same moment each get a number of their own, and none is lost ([3e35547](https://github.com/DOstapovets/claude-noticed-issues/commit/3e35547cda0bf90a098fd15de4f0bfd00cd99150))
+* on the list of projects the footer stays at the pane's bottom edge ([280aa74](https://github.com/DOstapovets/claude-noticed-issues/commit/280aa74b96f078d3c3fc73f373dc768d1c7677e4))
+
 ## [0.24.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.23.0...v0.24.0) (2026-11-07)
 
 
