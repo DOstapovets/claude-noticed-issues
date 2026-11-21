@@ -1121,6 +1121,50 @@ test('a very long note is stored cut, and the answer says so', async ($, on) => 
   expect(answer(short)).toBe('Noted as #2; the user sees it under /noticely.')
 })
 
+test('a note like one on the list names it, and goes to it with duplicateOf or anew with force', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Jest gate red on master', detail: 'since 2026-08-26', priority: 'low' })
+  await $.tool.call({ tool: NOTE, title: 'Stale cache', file: 'hooks/store.ts:12' })
+
+  // Other words, the same problem: nothing is added, and the answer names the entry.
+  const reworded = await $.tool.call({ tool: NOTE, title: 'The jest gate on master is red' })
+  expect(answer(reworded)).toContain('Not noted: similar entries are on the list: #1 "Jest gate red on master"')
+  // The same file at another line is a near match too, whatever the title.
+  const sameFile = await $.tool.call({ tool: NOTE, title: 'Unrelated wording', file: 'hooks/store.ts:80' })
+  expect(answer(sameFile)).toContain('#2 "Stale cache" (hooks/store.ts:12)')
+  expect(await flag($)).toBe('⚑ 2 issues · 2 this session')
+
+  const merged = await $.tool.call({
+    tool: NOTE,
+    title: 'The jest gate on master is red',
+    detail: 'fails in register.test.tsx',
+    file: 'hooks/register.test.tsx',
+    priority: 'high',
+    duplicateOf: 1,
+  })
+  expect(answer(merged)).toBe('Added to #1.')
+  expect(seen.toasts.at(-1)).toBe('⚑ #1 updated')
+  expect(await flag($)).toBe('⚑ 2 issues · 2 this session')
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: 'hooks/register.test.tsx' })).toBeDefined()
+  await ui.unmount()
+  const prompt = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await prompt.press({ key: 'session-1' })
+  await prompt.unmount()
+  expect(seen.argv.at(-1)?.[2]).toContain('Detail: since 2026-08-26\n\nfails in register.test.tsx')
+  // Raised from low to high: the card moved to the first group.
+  expect((await lines(await $.ui.mount({ ...PANE, surface: 'terminal' }))).join('\n')).toMatch(/High[\s\S]*#1 Jest gate/)
+
+  const unknown = await $.tool.call({ tool: NOTE, title: 'Anything', duplicateOf: 9 })
+  expect(answer(unknown)).toBe('Not noted: no issue #9.')
+
+  const forced = await $.tool.call({ tool: NOTE, title: 'The jest gate on master is red', force: true })
+  expect(answer(forced)).toContain('Noted as #3')
+  const other = await $.tool.call({ tool: NOTE, title: 'Playwright browsers missing' })
+  expect(answer(other)).toContain('Noted as #4')
+})
+
 test('Feedback starts a session that interviews the user and posts only once they confirm', async ($, on) => {
   const seen = engine(on)
   await $.session.start(start('/proj/a'))

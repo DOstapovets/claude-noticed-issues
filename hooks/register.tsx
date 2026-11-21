@@ -8,7 +8,7 @@ import { onGithub, refreshGithub } from './github'
 import { arrange, cardColumnsOf, clip, count, firstCard, FOOT_ROWS, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
 import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
-import { addIssue, adoptOldStore, change, COLLAPSED_KEY, load, loadProjects, migrate, SETTINGS_KEY } from './store'
+import { addIssue, adoptOldStore, change, COLLAPSED_KEY, load, loadProjects, migrate, SETTINGS_KEY, similar } from './store'
 import { scanTodos } from './todos'
 
 const PANE = 'noticely'
@@ -75,7 +75,9 @@ export const register: Register = (on, options) => {
         'Record a problem you noticed that is NOT part of the current task and that you are not fixing now ' +
         '(a bug, a leaked secret, broken config, a failing check, stale docs). It goes on the user\'s ' +
         'per-project Noticely list, kept across sessions. Mention it in one line in your reply too. ' +
-        'Do not use it for steps of the current task: those belong in the task list.',
+        'Do not use it for steps of the current task: those belong in the task list. ' +
+        'When a similar entry is on the list already, the answer names it: then call again with ' +
+        '`duplicateOf` to add to that entry, or with `force` if it is a different problem.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -88,6 +90,11 @@ export const register: Register = (on, options) => {
             description:
               'high: a security problem, data loss or something broken for users; low: cosmetic or nice to have; medium otherwise (the default)',
           },
+          duplicateOf: {
+            type: 'number',
+            description: 'The number of the entry this is the same problem as: the detail is added to it instead of a new entry',
+          },
+          force: { type: 'boolean', description: 'Add a new entry even though similar ones are on the list' },
         },
         required: ['title'],
       },
@@ -175,11 +182,49 @@ export const register: Register = (on, options) => {
 
     const detail = field('detail')
     const file = field('file')
+    const priority = PRIORITIES.some(p => p.value === input.priority) ? (input.priority as Priority) : undefined
+
+    if (input.duplicateOf !== undefined) {
+      const id = Number(input.duplicateOf)
+      let found = false
+      await change($, list =>
+        list.map(i => {
+          if (i.id !== id) return i
+          found = true
+          return {
+            ...i,
+            ...(detail ? { detail: clip(i.detail ? `${i.detail}\n\n${detail}` : detail, LIMITS.detail) } : {}),
+            ...(file && !i.file ? { file } : {}),
+            ...(priority && PRIORITIES.findIndex(p => p.value === priority) < rank(i) ? { priority } : {}),
+          }
+        }),
+      )
+
+      if (!found) {
+        return { result: `Not noted: no issue #${input.duplicateOf}.` }
+      }
+
+      await $.ui.toast(`⚑ #${id} updated`)
+      return { result: `Added to #${id}.` }
+    }
+
+    const near = input.force === true ? [] : similar(await load($), title, file)
+
+    // The same title is not a near match: addIssue answers it as on the list already.
+    if (near.length > 0 && !near.some(i => i.title.toLowerCase() === title.toLowerCase())) {
+      const names = near.map(i => `#${i.id} "${i.title}"${i.file ? ` (${i.file})` : ''}`).join(', ')
+      return {
+        result:
+          `Not noted: similar entries are on the list: ${names}. If one is the same problem, call note_issue ` +
+          'again with duplicateOf set to its number to add your detail; if it is a different problem, call again with force: true.',
+      }
+    }
+
     const { issue, isNew } = await addIssue($, {
       title,
       ...(detail ? { detail } : {}),
       ...(file ? { file } : {}),
-      ...(PRIORITIES.some(p => p.value === input.priority) ? { priority: input.priority as Priority } : {}),
+      ...(priority ? { priority } : {}),
     })
 
     if (!isNew) {

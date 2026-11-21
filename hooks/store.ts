@@ -87,6 +87,29 @@ export async function addIssue($: Api, fields: Pick<Issue, 'title' | 'detail' | 
   return added
 }
 
+// Words of three letters or more, and numbers: `Leak 1` and `Leak 2` stay apart.
+const words = (title: string) => new Set(title.toLowerCase().match(/\p{L}{3,}|\p{N}+/gu) ?? [])
+const place = (file?: string) => file?.replace(/:\d+(:\d+)?$/, '')
+
+// Up to three issues on the list that may be the same problem: seen in the same
+// file, whatever the line, or with half the words of the title or more in common.
+// shortcut: word overlap misses synonyms; look at embeddings only if misses show up.
+export function similar(list: Issue[], title: string, file?: string) {
+  const mine = words(title)
+  const overlap = (issue: Issue) => {
+    const theirs = words(issue.title)
+    const shared = [...mine].filter(w => theirs.has(w)).length
+    return shared / (mine.size + theirs.size - shared || 1)
+  }
+
+  return list
+    .map(issue => ({ issue, score: overlap(issue) }))
+    .filter(({ issue, score }) => score >= 0.5 || (place(file) !== undefined && place(file) === place(issue.file)))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ issue }) => issue)
+}
+
 // Each list in the store but this project's: those with issues first, then the
 // most recently changed. A list kept per worktree before 0.4 shows as one of its
 // own until a session in its repository folds it in.
