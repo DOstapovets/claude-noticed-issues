@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.26.0](https://github.com/DOstapovets/noticely/compare/v0.25.0...v0.26.0) (2026-11-21)
+
+
+### Features
+
+* a card shows its pull request, and GitHub is read in batches within its rate limit ([e215b5e](https://github.com/DOstapovets/noticely/commit/e215b5efbf3c433329d6958cef0e3d7d94c62a60))
+* resolved issues stay on a Completed tab for the days chosen in Settings ([5a92f8d](https://github.com/DOstapovets/noticely/commit/5a92f8d188ccdf3b28dab29612966b1122187103))
+
+
+### Bug Fixes
+
+* the settings state types as Settings, not claude-code's own ([6a7d22c](https://github.com/DOstapovets/noticely/commit/6a7d22c3876c05d0b2fdfc4a102dca9f180234a3))
+
+
+### Performance Improvements
+
+* reloads redraw only on change, and a long line of code is read once ([9f725b6](https://github.com/DOstapovets/noticely/commit/9f725b6d9e856d69ec6e98a830aee3961f8967f8))
+
 ## [0.25.0](https://github.com/DOstapovets/noticely/compare/v0.24.0...v0.25.0) (2026-11-21)
 
 
