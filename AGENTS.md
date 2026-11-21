@@ -87,6 +87,10 @@ the repository. The scripts are in `.claude/hooks/`:
   repository's main working tree (switching back to `main` is allowed) and asks for a
   worktree instead (see below).
 
+The suite holds performance budgets too: how many `$.store` and `$.state` calls an
+action makes, and how the time of `arrange`, `similar` and `parseTodos` grows.
+[docs/performance.md](./docs/performance.md) lists them and why each one is set.
+
 A passing suite does not show how the pane looks. The test kit does not draw
 hover, colors or real wrapping, so check anything visual in a real session (below)
 and say in the PR that you did.
