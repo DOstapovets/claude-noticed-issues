@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/hero.png" alt="Notifly: Claude saw a bug next door. Now it won't get lost." width="100%"></p>
+
 # noticed-issues
 
 A Claude Code plugin that keeps a per-project list of problems Claude noticed
