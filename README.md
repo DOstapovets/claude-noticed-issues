@@ -122,6 +122,9 @@ XXX**, **TODO**. Each card shows the comment's text and `path:line`, with two co
 comment once it is fixed, and **▶ New session** notes it and starts the session for that
 entry. A comment already on the list, by its title, says `on the list #N` instead. The tab
 holds the first 200 and reads `Code 200+` when there are more.
+The scan reads a line at a time and knows no language, so it misses a lowercase `todo`,
+a tag after other words in a `/* */` comment and one in a Python docstring, and takes a
+comment-like line inside a multi-line string and a Markdown heading such as `## TODO`.
 
 **Outside the terminal** (VS Code, the desktop app, the mobile app) each group takes
 the height its cards need and the pane scrolls as a whole, with a little more room

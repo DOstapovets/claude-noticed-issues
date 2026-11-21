@@ -71,3 +71,44 @@ test('a comment is a card in its tag\'s group, in the order found', () => {
   ])
   expect(cards[0]!.createdAt).toBeGreaterThan(cards[1]!.createdAt)
 })
+
+test('each line is read once, its first tag, whatever the spacing', () => {
+  const found = parseTodos(
+    [
+      // Two tags on a line: one card, the first.
+      'a.ts:1:// TODO: one // FIXME: two',
+      // No space, tabs, and a tag at the start of a `/* */` block's later line.
+      'b.ts:2://TODO:no space',
+      'c.ts:3:\t#\tFIXME\ttabs',
+      'd.c:4: * HACK: inside a block',
+    ].join('\n'),
+  )
+
+  expect(found).toEqual([
+    { tag: 'TODO', file: 'a.ts', line: 1, text: 'one // FIXME: two' },
+    { tag: 'TODO', file: 'b.ts', line: 2, text: 'no space' },
+    { tag: 'FIXME', file: 'c.ts', line: 3, text: 'tabs' },
+    { tag: 'HACK', file: 'd.c', line: 4, text: 'inside a block' },
+  ])
+})
+
+// The scan reads one line at a time and knows no language: these are its known limits.
+test('what a line alone cannot tell', () => {
+  const found = parseTodos(
+    [
+      // Missed: a lowercase tag, a tag after prose in a block comment, a Python docstring.
+      'a.ts:1:// todo: lowercase',
+      'b.ts:2:/* note: TODO later */',
+      'c.py:3:    """TODO: in a docstring"""',
+      // Taken although not comments: a line inside a template literal or a
+      // multi-line string, and a Markdown heading.
+      'd.ts:4:  // TODO: inside a template literal',
+      'e.md:5:## TODO list',
+    ].join('\n'),
+  )
+
+  expect(found).toEqual([
+    { tag: 'TODO', file: 'd.ts', line: 4, text: 'inside a template literal' },
+    { tag: 'TODO', file: 'e.md', line: 5, text: 'list' },
+  ])
+})

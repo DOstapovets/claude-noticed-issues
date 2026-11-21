@@ -490,6 +490,35 @@ test('an odd answer from gh skips that issue and later passes still read it', GI
   await ui.unmount()
 })
 
+test('gh missing, logged out or rate limited changes nothing on the list, and the next pass or press works', GITHUB_ON, async ($, on) => {
+  const linked = { id: 1, title: 'Linked', createdAt: 1, githubUrl: 'https://github.com/o/r/issues/7', github: { state: 'OPEN' } }
+  const seen = engine(on, { 'issues:/proj/a': { nextId: 3, items: [linked, { id: 2, title: 'Not linked', createdAt: 1 }] } })
+  seen.fail = 'spawn'
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  const before = seen.store.get('issues:/proj/a')
+  expect(before.items[0]).toEqual(linked)
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'github-2' })
+  expect(seen.toasts.at(-1)).toBe('Could not create a GitHub issue for #2: gh issue create failed')
+  seen.fail = 'gh: To get started with GitHub CLI, please run:  gh auth login'
+  await ui.press({ key: 'github-2' })
+  expect(seen.toasts.at(-1)).toContain('gh auth login')
+  seen.fail = 'API rate limit exceeded'
+  await seen.clock.advance(5 * 60_000)
+  expect(seen.store.get('issues:/proj/a')).toEqual(before)
+
+  // Back again: the pass that follows reads the status, the press files the issue.
+  seen.fail = null
+  seen.github = { state: 'OPEN', projectItems: [{ status: { name: '📋 To do' }, title: 'Roadmap' }] }
+  await seen.clock.advance(5 * 60_000)
+  expect(seen.store.get('issues:/proj/a').items[0].github).toEqual({ state: 'OPEN', board: '📋 To do' })
+  await ui.press({ key: 'github-2' })
+  expect(seen.store.get('issues:/proj/a').items[1].githubUrl).toBe('https://github.com/o/r/issues/42')
+  await ui.unmount()
+})
+
 test('a second press of ▶ while the first is starting starts no second session', async ($, on) => {
   const seen = engine(on)
   await $.session.start(start('/proj/a'))
