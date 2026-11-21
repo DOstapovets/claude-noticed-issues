@@ -73,6 +73,9 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     surfaces: ['terminal'] as string[],
     // What `claude --bg` and `gh issue create` wait for before they answer.
     hold: undefined as Promise<void> | undefined,
+    // How `gh` and `claude` fail, if they do: 'spawn' cannot start one (gh not installed, a timeout),
+    // other text is what one prints as it exits 1.
+    fail: null as string | null,
     // The questions `$.ui.ask` put, and the label the user picks; null dismisses the dialog.
     asked: [] as string[],
     choice: 'Not now' as string | null,
@@ -138,6 +141,13 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
           isStderrTruncated: false,
         },
       }
+    }
+    if (seen.fail === 'spawn') {
+      throw new Error(`${e.argv[0]}: command not found`)
+    }
+    if (seen.fail !== null) {
+      seen.argv.push(e.argv)
+      return { value: { exitCode: 1, stdout: '', stderr: seen.fail, isStdoutTruncated: false, isStderrTruncated: false } }
     }
     if (e.argv[0] === 'gh' && e.argv[2] === 'view') {
       seen.viewed.push(e.argv[3] ?? '')
@@ -494,6 +504,27 @@ test('a second press of ▶ while the first is starting starts no second session
   release()
   await Promise.all([first, second])
   expect(seen.argv).toHaveLength(1)
+  await ui.unmount()
+})
+
+test('a session that does not start says why, leaves ▶ to press again, and once started is not started twice', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+
+  seen.fail = 'spawn'
+  await ui.press({ key: 'session-1' })
+  expect(seen.toasts.at(-1)).toBe('Could not start a session for #1: claude --bg failed')
+  seen.fail = 'Error: not logged in'
+  await ui.press({ key: 'session-1' })
+  expect(seen.toasts.at(-1)).toBe('Could not start a session for #1: Error: not logged in')
+  expect(seen.store.get('issues:/proj/a').items[0].sessionId).toBeUndefined()
+
+  seen.fail = null
+  await ui.press({ key: 'session-1' })
+  expect(seen.store.get('issues:/proj/a').items[0].sessionId).toBe('4b7cb777')
+  expect(await ui.find({ key: 'session-1' })).toBeUndefined()
   await ui.unmount()
 })
 

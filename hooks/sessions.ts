@@ -42,7 +42,8 @@ const starting = new Set<number>()
 export async function startSession($: Api, id: number) {
   const issue = (await read($, issues)).find(i => i.id === id)
 
-  if (!issue || starting.has(id)) {
+  // One with a session already: a press drawn before it was saved, or ▶ on the Code tab for a comment listed meanwhile.
+  if (!issue || issue.sessionId || starting.has(id)) {
     return
   }
 
