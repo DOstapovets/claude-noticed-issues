@@ -13,9 +13,9 @@ import { scanTodos } from './todos'
 
 const PANE = 'noticely'
 const TITLE = 'Noticely'
-const NOTE = 'mcp__noticed-issues__note_issue'
-const RESOLVE = 'mcp__noticed-issues__resolve_issue'
-const SAVE_RULE = 'mcp__noticed-issues__save_issue_rule'
+const NOTE = 'mcp__noticely__note_issue'
+const RESOLVE = 'mcp__noticely__resolve_issue'
+const SAVE_RULE = 'mcp__noticely__save_issue_rule'
 const RULE_LIMIT = 4000
 // Another session of this project (a background one started from the pane)
 // may resolve issues; pick its changes up this often.

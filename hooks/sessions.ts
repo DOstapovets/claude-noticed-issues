@@ -121,7 +121,7 @@ const setupPrompt = () => [
   '1. Study the repository: its README, CLAUDE.md and AGENTS.md, the stack, the checks (CI, tests, lint, type checks), the docs, the config and where secrets could leak, and what is already on the list (`/noticely`).',
   '2. Draft the rule as a short Markdown list, under 4000 characters: when to call `note_issue` here, with concrete examples of problems outside a task for this stack and these paths; how to choose `high`, `medium` or `low` here; and when not to call it (steps of the current task belong in the task list; what is fixed in passing).',
   '3. Interview me with AskUserQuestion: show me the draft and ask whether to save it or what to change, and ask whether to note the problems you found while studying the repository.',
-  '4. Once I confirm, save it with the `save_issue_rule` tool (`mcp__noticed-issues__save_issue_rule`, load it through ToolSearch). If I said yes, note each problem found with `note_issue`.',
+  '4. Once I confirm, save it with the `save_issue_rule` tool (`mcp__noticely__save_issue_rule`, load it through ToolSearch). If I said yes, note each problem found with `note_issue`.',
 ].join('\n')
 
 export async function startSetup($: Api) {

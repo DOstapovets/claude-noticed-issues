@@ -4,8 +4,8 @@ import type { Engine, FoundElement } from 'claude-code/testing'
 
 import { wrappedRows } from './layout'
 
-const NOTE = 'mcp__noticed-issues__note_issue'
-const RESOLVE = 'mcp__noticed-issues__resolve_issue'
+const NOTE = 'mcp__noticely__note_issue'
+const RESOLVE = 'mcp__noticely__resolve_issue'
 
 const answer = (ran: { result?: unknown }) => String(ran.result)
 
@@ -119,7 +119,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     seen.opened += 1
     return { value: { isPlaced: true as const } }
   })
-  on('tool.register', (_, e) => ({ value: { tool: `mcp__noticed-issues__${e.name}` } }))
+  on('tool.register', (_, e) => ({ value: { tool: `mcp__noticely__${e.name}` } }))
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('prompt.context', (_, e) => ({ blocks: e.blocks }))
@@ -1322,7 +1322,7 @@ test('outside a repository the list is the directory\'s', async ($, on) => {
   expect(await flag($)).toBe('⚑ 1 issue')
 })
 
-const SAVE_RULE = 'mcp__noticed-issues__save_issue_rule'
+const SAVE_RULE = 'mcp__noticely__save_issue_rule'
 const RULE_BLOCK = 'noticelyRule'
 
 // The blocks the plugin adds to a conversation's context.
