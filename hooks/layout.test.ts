@@ -34,20 +34,28 @@ test('text wraps word by word, a word wider than a row broken', () => {
   expect(wrappedRows('🐛🐛🐛 🐛', 5)).toBe(1)
 })
 
-test("a card's rows: heading, file, detail cut to three lines, border and controls", () => {
+test("a card's rows: heading, file, detail cut to three lines, links, border and controls", () => {
   // `#1 Short`, then the border's two rows, the controls' row and a blank row.
   expect(cardRows(issue(), 40, false, NOW)).toBe(5)
-  expect(cardRows(issue({ file: 'src/a.ts' }), 40, false, NOW)).toBe(6)
-  // A pull request's row, under the heading.
-  expect(cardRows(issue({ pull: { number: 12, url: 'https://github.com/o/r/pull/12', state: 'OPEN' } }), 40, false, NOW)).toBe(6)
-  expect(cardRows(issue({ detail: 'one line' }), 40, false, NOW)).toBe(6)
+  // A blank row between the heading and the file or detail.
+  expect(cardRows(issue({ file: 'src/a.ts' }), 40, false, NOW)).toBe(7)
+  expect(cardRows(issue({ detail: 'one line' }), 40, false, NOW)).toBe(7)
+  expect(cardRows(issue({ file: 'src/a.ts', detail: 'one line' }), 40, false, NOW)).toBe(8)
   // Five hundred characters of detail are drawn cut to 3 × 40 characters.
   expect(DETAIL_LINES).toBe(3)
-  expect(cardRows(issue({ detail: 'word '.repeat(100) }), 40, false, NOW)).toBe(5 + DETAIL_LINES)
+  expect(cardRows(issue({ detail: 'word '.repeat(100) }), 40, false, NOW)).toBe(6 + DETAIL_LINES)
   // Words that wrap badly still take three lines: 21 characters leave 19 of each row empty.
-  expect(cardRows(issue({ detail: `${'x'.repeat(21)} `.repeat(20) }), 40, false, NOW)).toBe(5 + DETAIL_LINES)
-  // A linked GitHub issue puts number, link and status on a line of their own.
-  expect(cardRows(issue({ githubUrl: 'https://github.com/o/r/issues/42' }), 40, false, NOW)).toBe(6)
+  expect(cardRows(issue({ detail: `${'x'.repeat(21)} `.repeat(20) }), 40, false, NOW)).toBe(6 + DETAIL_LINES)
+  // The links' line, with a blank row above it and one before the controls.
+  const githubUrl = 'https://github.com/o/r/issues/42'
+  const pull = { number: 12, url: 'https://github.com/o/r/pull/12', state: 'OPEN' } as const
+  expect(cardRows(issue({ githubUrl }), 40, false, NOW)).toBe(8)
+  expect(cardRows(issue({ pull }), 40, false, NOW)).toBe(8)
+  // `↗ Issue #42 (open)`, three columns and `⎇ PR #12 (open)` take 36: one line at 40, a line each at 30.
+  expect(cardRows(issue({ githubUrl, github: { state: 'OPEN' }, pull }), 40, false, NOW)).toBe(8)
+  expect(cardRows(issue({ githubUrl, github: { state: 'OPEN' }, pull }), 30, false, NOW)).toBe(9)
+  // A read-only card has no controls, so no blank row below the links.
+  expect(cardRows(issue({ githubUrl }), 40, false, NOW, 'readOnly')).toBe(6)
 })
 
 test('the corner beside the heading takes its width from the age, or from the delete prompt', () => {
@@ -146,6 +154,7 @@ test('a read-only card has no row of controls and only its age in the corner', (
   expect(cardRows(long, 40, false, NOW, 'readOnly')).toBe(1 + 3)
   // A comment's card has no corner and no number: 36 characters fit in its 40.
   const comment = issue({ title: 'abcdefghij abcdefghij abcdefghij abcd', file: 'a.ts:1' })
+  // Nor a blank row under its heading.
   expect(cardRows(comment, 40, false, NOW, 'code')).toBe(1 + 1 + 4)
   expect(headRows(true, true)).toBe(6)
 })

@@ -72,8 +72,8 @@ then shows every entry. Once an entry is resolved, or closed on GitHub, a **✓ 
 tab follows **All**: its cards are read only and say, at the top right, when the entry was
 resolved, `✓ 2h ago`. They stay there for the days chosen in **⚙ Settings**, 7 at first.
 An entry deleted with ✕ does not go there. Within a group the newest entry comes first. Each entry is a card with its number and
-title in bold and, at the top right, when it was noted: `just now`, `5m ago`, `3h ago`,
-then after a day the date and time, `06.11 14:05`. Below the title, dimmed, come the
+title in bold on one line, wrapped when long, and, at the top right, when it was noted: `just now`, `5m ago`, `3h ago`,
+then after a day the date and time, `06.11 14:05`. A blank row below the title, dimmed, come the
 file on one line (shortened in the middle when it does not fit) and the detail cut to
 three lines. These are its controls:
 
@@ -82,9 +82,9 @@ three lines. These are its controls:
   `claude attach <id>` connects to, and later the pull request the session opened:
   see [GitHub status](#github-status).
 - **↗ GitHub issue** files it with `gh issue create` in the repository of the session's
-  directory: the title becomes the issue title, `detail` and `file` its body. The card's
-  heading then links it next to the number, on a line of its own above the title:
-  `#3  ↗ #42 · open · 📋 To do`, with the column of the project board it is on, if any.
+  directory: the title becomes the issue title, `detail` and `file` its body. The card
+  then links it on a line under the detail, with a blank row above and below:
+  `↗ Issue #42 (open · 📋 To do)`, with the column of the project board it is on, if any.
   Shown only where GitHub is on: see [Settings](#settings).
 - **⎘ Copy** puts the entry on the clipboard to paste into a prompt: `#3` and the
   title, then `Where:` and the file, then the detail whole. A toast says it was copied,
@@ -202,8 +202,8 @@ The same query finds the **pull request** for an entry. It is either a pull requ
 that closes its GitHub issue, or one a background session opened for it. The session
 is asked to end the pull request's description with `Noticely issue #3 (noticed …)`,
 and a search of the repository's pull requests finds that line. The card shows the
-pull request on a row under its heading, `⎇ PR #12 · draft`, then `open`, `merged`
-or `closed`. With several, an open one wins over a merged one, then the newest.
+pull request on the same line as the issue's link, `⎇ PR #12 (draft)`, then `open`,
+`merged` or `closed`; where both do not fit on one line, each takes a line of its own. With several, an open one wins over a merged one, then the newest.
 
 When the GitHub issue is **closed**, as completed or as not planned, the entry is
 moved to the Completed tab and a toast says `✓ closed on GitHub, completed: #1`. This is

@@ -5,7 +5,7 @@ import type { Issue, Priority, Project, Settings, Tab } from '../types'
 import { session } from './context'
 import type { Api } from './context'
 import { createGithubIssue } from './github'
-import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, FOOT_ROWS, headRows, PRIORITIES, projectName, rank } from './layout'
+import { age, arrange, cardColumnsOf, clipRows, DETAIL_LINES, firstCard, FOOT_ROWS, headRows, issueLink, LINK_GAP, PRIORITIES, projectName, pullLink, rank } from './layout'
 import type { CardKind } from './layout'
 import { startFeedback, startSession, whereRun } from './sessions'
 import { change, KEEP_DAYS, loadProjects, setKeepDays, toggleGroup } from './store'
@@ -239,60 +239,55 @@ export async function renderPane($: Api, e: PaneRender) {
       {/* VS Code wraps a row by default: kept on one line there, a long title wraps
           inside its own column and the age and ✕ stay in the top right corner. */}
       <Box justifyContent="space-between" {...(space ? { flexWrap: 'nowrap' as const, alignItems: 'flex-start' as const } : {})}>
-        {issue.githubUrl ? (
-          // A linked issue: number, link and status on a line of their own that
-          // never wraps, the title below at the card's full width.
-          <Box key={`head-${issue.id}`} flexDirection="column" flexGrow={1} flexShrink={1}>
-            <Box flexShrink={0}>
-              <Text color="claude" bold>
-                #{issue.id}
-              </Text>
-              <Box marginLeft={2} flexShrink={0}>
-                <Link href={issue.githubUrl} label={`↗ #${issue.githubUrl.split('/').pop()}`} />
-                {issue.github && (
-                  <Text color="success"> · open{issue.github.board ? ` · ${issue.github.board}` : ''}</Text>
-                )}
-              </Box>
-            </Box>
-            <Text bold wrap="wrap">
-              {issue.title}
-            </Text>
-          </Box>
-        ) : (
-          <Box key={`head-${issue.id}`} flexGrow={1} flexShrink={1}>
-            <Text wrap="wrap">
-              <Text color="claude" bold>
-                #{issue.id}
-              </Text>{' '}
-              <Text bold>{issue.title}</Text>
-            </Text>
-          </Box>
-        )}
+        <Box key={`head-${issue.id}`} flexGrow={1} flexShrink={1}>
+          <Text wrap="wrap">
+            <Text color="claude" bold>
+              #{issue.id}
+            </Text>{' '}
+            <Text bold>{issue.title}</Text>
+          </Text>
+        </Box>
         {corner(issue)}
       </Box>
-      {issue.pull && (
-        <Box key={`pull-${issue.id}`} flexShrink={0}>
-          <Link href={issue.pull.url} label={`⎇ PR #${issue.pull.number}`} />
-          {issue.pull.state === 'MERGED' ? (
-            <Text color="cyan"> · merged</Text>
-          ) : issue.pull.state === 'CLOSED' ? (
-            <Text dimColor> · closed</Text>
-          ) : issue.pull.isDraft ? (
-            <Text dimColor> · draft</Text>
-          ) : (
-            <Text color="success"> · open</Text>
-          )}
+      {/* A blank row between the heading and what was noted under it. */}
+      {issue.file && (
+        <Box marginTop={1}>
+          <Text dimColor wrap="truncate-middle">
+            {issue.file}
+          </Text>
         </Box>
       )}
-      {issue.file && (
-        <Text dimColor wrap="truncate-middle">
-          {issue.file}
-        </Text>
-      )}
       {issue.detail && (
-        <Text dimColor wrap="wrap">
-          {clipRows(issue.detail, cardColumns, DETAIL_LINES)}
-        </Text>
+        <Box marginTop={issue.file ? 0 : 1}>
+          <Text dimColor wrap="wrap">
+            {clipRows(issue.detail, cardColumns, DETAIL_LINES)}
+          </Text>
+        </Box>
+      )}
+      {/* The GitHub issue and its pull request on one line, a line each where both do not fit. */}
+      {(issue.githubUrl || issue.pull) && (
+        <Box key={`links-${issue.id}`} marginTop={1} marginBottom={readOnly ? 0 : 1} flexWrap="wrap" columnGap={LINK_GAP}>
+          {issue.githubUrl && (
+            <Box flexShrink={0}>
+              <Link href={issue.githubUrl} label={issueLink(issue.githubUrl).label} />
+              {issue.github && <Text color="success">{issueLink(issue.githubUrl, issue.github).status}</Text>}
+            </Box>
+          )}
+          {issue.pull && (
+            <Box key={`pull-${issue.id}`} flexShrink={0}>
+              <Link href={issue.pull.url} label={pullLink(issue.pull).label} />
+              <Text
+                {...(issue.pull.state === 'MERGED'
+                  ? { color: 'cyan' }
+                  : issue.pull.state === 'OPEN' && !issue.pull.isDraft
+                    ? { color: 'success' }
+                    : { dimColor: true })}
+              >
+                {pullLink(issue.pull).status}
+              </Text>
+            </Box>
+          )}
+        </Box>
       )}
       {!readOnly && (
         <Box justifyContent="space-between">

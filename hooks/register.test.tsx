@@ -552,7 +552,7 @@ test('a GitHub issue is created for an issue', GITHUB_ON, async ($, on) => {
   // The pane now links the issue instead of offering the button.
   const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect(await after.find({ key: 'github-1' })).toBeUndefined()
-  expect(await after.find({ type: 'Link', text: /↗ #42/ })).toBeDefined()
+  expect(await after.find({ type: 'Link', text: /↗ Issue #42/ })).toBeDefined()
   await after.press({ key: 'session-1' })
   await after.unmount()
   expect(seen.argv.at(-1)?.[2]).toContain('GitHub issue: https://github.com/o/r/issues/42')
@@ -576,8 +576,9 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', G
   await seen.clock.settle()
   expect(seen.viewed).toEqual(['https://github.com/o/r/issues/7', 'https://github.com/o/r/issues/8'])
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  // The link and its status sit in the card's heading, after the number.
-  expect((await lines(ui)).find(line => line.startsWith('#1 '))).toMatch(/^#1 ↗ #7 · open · 📋 To do/)
+  // The link and its status sit under the detail, the heading keeps the number and title.
+  expect((await lines(ui)).find(line => line.startsWith('#1 '))).toBe('#1 Linked')
+  expect((await ui.find({ key: 'links-1' }))?.text).toMatch(/^↗ Issue #7 \(open · 📋 To do\)/)
   await ui.unmount()
 
   // Closed on GitHub, as not planned: gone on the next pass, here the one `/noticely` starts.
@@ -623,7 +624,7 @@ test('an odd answer from gh skips that issue and later passes still read it', GI
   await seen.clock.advance(5 * 60_000)
   expect(seen.viewed).toHaveLength(2)
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await lines(ui)).find(line => line.startsWith('#1 '))).toMatch(/^#1 ↗ #7 · open · 📋 To do/)
+  expect((await ui.find({ key: 'links-1' }))?.text).toMatch(/^↗ Issue #7 \(open · 📋 To do\)/)
   await ui.unmount()
 })
 
@@ -716,7 +717,7 @@ test('auto offers GitHub only where origin is on github.com', async ($, on) => {
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
     const button = await ui.find({ key: 'github-2' })
     // A link made earlier stays whatever the setting.
-    expect(await ui.find({ type: 'Link', text: /↗ #7/ })).toBeDefined()
+    expect(await ui.find({ type: 'Link', text: /↗ Issue #7/ })).toBeDefined()
     await ui.unmount()
     return button !== undefined
   }
@@ -1976,8 +1977,8 @@ test('a card shows the pull request that closes its GitHub issue, or the one its
     undefined,
   ])
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ key: 'pull-1' }))?.text).toBe('⎇ PR #12 · draft')
-  expect((await ui.find({ key: 'pull-2' }))?.text).toBe('⎇ PR #20 · merged')
+  expect((await ui.find({ key: 'pull-1' }))?.text).toBe('⎇ PR #12 (draft)')
+  expect((await ui.find({ key: 'pull-2' }))?.text).toBe('⎇ PR #20 (merged)')
   expect(await ui.find({ key: 'pull-3' })).toBeUndefined()
 
   // A session started for an issue is asked to mark its pull request so.

@@ -1,4 +1,4 @@
-import type { Issue, Priority } from '../types'
+import type { GithubStatus, Issue, Priority, Pull } from '../types'
 import { MINUTE } from './context'
 
 export const count = (n: number) => (n === 1 ? '1 issue' : `${n} issues`)
@@ -139,6 +139,30 @@ export const clipRows = (value: string, width: number, rows: number) => {
 // only too and told by when it was resolved, or a comment in the code.
 export type CardKind = 'own' | 'readOnly' | 'done' | 'code'
 
+// The links under a card's detail, each its label and status: `↗ Issue #42 (open)`, `⎇ PR #43 (draft)`.
+export const issueLink = (url: string, github?: GithubStatus) => ({
+  label: `↗ Issue #${url.split('/').pop()}`,
+  status: github ? ` (open${github.board ? ` · ${github.board}` : ''})` : '',
+})
+export const pullLink = (pull: Pull) => ({
+  label: `⎇ PR #${pull.number}`,
+  status: ` (${pull.state === 'MERGED' ? 'merged' : pull.state === 'CLOSED' ? 'closed' : pull.isDraft ? 'draft' : 'open'})`,
+})
+// Columns between the two links on their line.
+export const LINK_GAP = 3
+
+// The rows the links take: one line, or a line each when both do not fit on one.
+const linkRows = (issue: Issue, columns: number) => {
+  const texts = [
+    issue.githubUrl && issueLink(issue.githubUrl, issue.github),
+    issue.pull && pullLink(issue.pull),
+  ].flatMap(link => (link ? [link.label + link.status] : []))
+
+  if (texts.length === 0) return 0
+  if (texts.join(' '.repeat(LINK_GAP)).length <= columns) return 1
+  return texts.reduce((rows, text) => rows + wrappedRows(text, columns), 0)
+}
+
 // The rows a card takes with `columns` inside its border. A plugin cannot
 // measure what it drew, so a group's rows are worked out from these. Another
 // project's card is read only: no ✕ in its corner and no row of controls. A
@@ -156,16 +180,16 @@ export const cardRows = (issue: Issue, columns: number, isConfirming: boolean, n
             ? 14
             : 5 + age(issue.createdAt, now).length
   const head = Math.max(1, columns - corner)
-  const title =
-    kind === 'code'
-      ? wrappedRows(issue.title, head)
-      : issue.githubUrl
-        ? 1 + wrappedRows(issue.title, head)
-        : wrappedRows(`#${issue.id} ${issue.title}`, head)
+  const title = kind === 'code' ? wrappedRows(issue.title, head) : wrappedRows(`#${issue.id} ${issue.title}`, head)
   const detail = issue.detail ? wrappedRows(clipRows(issue.detail, columns, DETAIL_LINES), columns) : 0
+  const hasControls = kind !== 'readOnly' && kind !== 'done'
+  // A blank row between the heading and the file or detail (not on a comment's card); the links have one
+  // above and, before the controls, one below.
+  const below = (issue.file || issue.detail ? (kind === 'code' ? 0 : 1) : 0) + (issue.file ? 1 : 0) + detail
+  const links = linkRows(issue, columns)
 
   // With the border's two rows, the controls' row and the blank row below the card.
-  return title + (issue.pull ? 1 : 0) + (issue.file ? 1 : 0) + detail + (kind === 'readOnly' || kind === 'done' ? 3 : 4)
+  return title + below + (links > 0 ? links + (hasControls ? 2 : 1) : 0) + (hasControls ? 4 : 3)
 }
 
 // A project's name: `owner/repo` from its remote, else its directory's.
