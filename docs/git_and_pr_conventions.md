@@ -114,7 +114,7 @@ hand.** [release-please](https://github.com/googleapis/release-please) maintains
 
 **What counts as breaking:** a stored issue that the new code cannot read, a renamed
 or removed tool (`note_issue`, `resolve_issue`) or tool parameter, a removed
-`userConfig` option, or a changed `/issues` argument.
+`userConfig` option, or a changed `/notifly` argument.
 
 The release PR is opened with the workflow's own token, and GitHub starts no workflow
 for an event made with that token. So `checks.yml` does not run on the release PR;
@@ -150,7 +150,7 @@ its commits were already checked on `main`.
 
 The issue forms are in `.github/ISSUE_TEMPLATE/`: **Bug report** and **Feature
 request**. Questions and ideas to talk through go to Discussions. The pane's
-**✎ Feedback** button and `/issues feedback` start a session that interviews the
+**✎ Feedback** button and `/notifly feedback` start a session that interviews the
 user and files one of these. Delete a heading rather than writing "N/A" under it.
 
 ## Pull requests

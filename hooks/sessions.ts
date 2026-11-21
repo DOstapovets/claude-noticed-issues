@@ -88,10 +88,10 @@ export const whereRun = (surface: string | undefined, isFullscreen: boolean | un
 }
 
 const feedbackPrompt = (where: string | undefined, surfaces: readonly string[]) => [
-  `Help me send feedback about the noticed-issues Claude Code plugin to its GitHub repository, ${PLUGIN_REPO}.`,
+  `Help me send feedback about the Notifly Claude Code plugin (noticed-issues) to its GitHub repository, ${PLUGIN_REPO}.`,
   '1. Interview me with AskUserQuestion, a few questions at a time. First: is it a bug, a feature request, or a question or idea to talk through? Then what that kind needs: for a bug, what happened, the steps and what I expected; for a feature, the problem and what I would like; for a question or idea, the question itself.',
   [
-    '2. Collect the environment yourself rather than asking: `claude --version`, the noticed-issues version from `claude plugin list` and the OS.',
+    '2. Collect the environment yourself rather than asking: `claude --version`, the noticed-issues (Notifly) version from `claude plugin list` and the OS.',
     where
       ? `Where I run Claude Code is known, as this session cannot see it: I started this feedback from ${where}${surfaces.length > 1 ? ` (my session draws on: ${surfaces.join(', ')})` : ''}. Put that under "Where you run Claude Code" without asking.`
       : 'Where I run Claude Code (terminal with the fullscreen layout or the main screen, the desktop app, VS Code) is not known: ask it with the other questions.',
@@ -117,8 +117,8 @@ export async function startFeedback($: Api, where: string | undefined) {
 }
 
 const setupPrompt = () => [
-  'Work out when Claude should note an issue in this repository with the noticed-issues plugin, and save it as the repository\'s rule.',
-  '1. Study the repository: its README, CLAUDE.md and AGENTS.md, the stack, the checks (CI, tests, lint, type checks), the docs, the config and where secrets could leak, and what is already on the list (`/issues`).',
+  'Work out when Claude should note an issue in this repository with the Notifly plugin, and save it as the repository\'s rule.',
+  '1. Study the repository: its README, CLAUDE.md and AGENTS.md, the stack, the checks (CI, tests, lint, type checks), the docs, the config and where secrets could leak, and what is already on the list (`/notifly`).',
   '2. Draft the rule as a short Markdown list, under 4000 characters: when to call `note_issue` here, with concrete examples of problems outside a task for this stack and these paths; how to choose `high`, `medium` or `low` here; and when not to call it (steps of the current task belong in the task list; what is fixed in passing).',
   '3. Interview me with AskUserQuestion: show me the draft and ask whether to save it or what to change, and ask whether to note the problems you found while studying the repository.',
   '4. Once I confirm, save it with the `save_issue_rule` tool (`mcp__noticed-issues__save_issue_rule`, load it through ToolSearch). If I said yes, note each problem found with `note_issue`.',
@@ -146,7 +146,7 @@ export async function offerSetup($: Api) {
   if (chosen === 'Analyze') {
     await startSetup($)
   } else {
-    await $.ui.toast('⚑ /issues setup analyzes this repository whenever you want')
+    await $.ui.toast('⚑ /notifly setup analyzes this repository whenever you want')
   }
 }
 

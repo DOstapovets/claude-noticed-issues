@@ -22,7 +22,7 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. In a repository whose origin is on github.com, run /issues
+        1. In a repository whose origin is on github.com, run /notifly
         2. …
     validations:
       required: true

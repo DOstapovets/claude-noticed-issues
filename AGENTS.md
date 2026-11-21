@@ -1,4 +1,4 @@
-# noticed-issues
+# Notifly
 
 ## What this is
 
@@ -44,7 +44,7 @@ state or the matcher as `?`.
 .claude-plugin/plugin.json       Manifest: name, version, userConfig (`github`), types
 .claude-plugin/marketplace.json  Lets the repository be added as a marketplace of its own
 hooks/hooks.json                 Names the hooks module, hooks/register.tsx
-hooks/register.tsx               Wiring: session.start, the tools, /issues, the ui hooks
+hooks/register.tsx               Wiring: session.start, the tools, /notifly, the ui hooks
 hooks/context.ts                 What the modules share for the session (`session`), Api, MINUTE
 hooks/store.ts                   The list and the folded groups in $.store: load, save, change, migrate
 hooks/layout.ts                  Pure layout and card text: arrange, cardRows, age, clip, LIMITS

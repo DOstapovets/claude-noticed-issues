@@ -3,7 +3,7 @@ import { MINUTE } from './context'
 
 export const count = (n: number) => (n === 1 ? '1 issue' : `${n} issues`)
 
-// Highest first: the order of the pane's groups and of `/issues` as text.
+// Highest first: the order of the pane's groups and of `/notifly` as text.
 export const PRIORITIES = [
   { value: 'high', label: 'High', color: 'error' },
   { value: 'medium', label: 'Medium', color: 'warning' },
