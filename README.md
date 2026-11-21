@@ -9,6 +9,8 @@ conversation, each finding goes on a list that survives across sessions, grouped
 priority. From any entry you can start a background session to fix it, or file a
 GitHub issue and follow its status.
 
+<p align="center"><img src="docs/assets/demo.gif" alt="Claude notes a leaked webhook secret while upgrading stripe; /notifly opens the pane, ▶ New session fixes it in the background, and the entry leaves the list once resolved." width="100%"></p>
+
 ## Install
 
 At the prompt of a Claude Code terminal session:
