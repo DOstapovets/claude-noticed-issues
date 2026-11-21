@@ -7,7 +7,7 @@ import { change } from './store'
 
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads it, so this module names the atom itself; types/index.d.ts declares it once.
-const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
+const issues = atom({ plugin: 'notifly', key: 'issues' } as const, [])
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.
@@ -88,10 +88,10 @@ export const whereRun = (surface: string | undefined, isFullscreen: boolean | un
 }
 
 const feedbackPrompt = (where: string | undefined, surfaces: readonly string[]) => [
-  `Help me send feedback about the Notifly Claude Code plugin (noticed-issues) to its GitHub repository, ${PLUGIN_REPO}.`,
+  `Help me send feedback about the Notifly Claude Code plugin to its GitHub repository, ${PLUGIN_REPO}.`,
   '1. Interview me with AskUserQuestion, a few questions at a time. First: is it a bug, a feature request, or a question or idea to talk through? Then what that kind needs: for a bug, what happened, the steps and what I expected; for a feature, the problem and what I would like; for a question or idea, the question itself.',
   [
-    '2. Collect the environment yourself rather than asking: `claude --version`, the noticed-issues (Notifly) version from `claude plugin list` and the OS.',
+    '2. Collect the environment yourself rather than asking: `claude --version`, the notifly version from `claude plugin list` and the OS.',
     where
       ? `Where I run Claude Code is known, as this session cannot see it: I started this feedback from ${where}${surfaces.length > 1 ? ` (my session draws on: ${surfaces.join(', ')})` : ''}. Put that under "Where you run Claude Code" without asking.`
       : 'Where I run Claude Code (terminal with the fullscreen layout or the main screen, the desktop app, VS Code) is not known: ask it with the other questions.',

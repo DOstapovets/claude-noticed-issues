@@ -7,14 +7,14 @@ import type { Api } from './context'
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads or writes it, so each module names the atoms it uses; types/index.d.ts
 // declares them once.
-const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
+const issues = atom({ plugin: 'notifly', key: 'issues' } as const, [])
 // The priority groups folded in the pane, the same in every project.
-const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
+const collapsed = atom({ plugin: 'notifly', key: 'collapsed' } as const, [])
 export const COLLAPSED_KEY = 'collapsed'
 // The settings, the same in every project.
 export const SETTINGS_KEY = 'settings'
 // Every other project's list, for the pane's Projects tab.
-const projects = atom({ plugin: 'noticed-issues', key: 'projects' } as const, [])
+const projects = atom({ plugin: 'notifly', key: 'projects' } as const, [])
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.
@@ -173,6 +173,41 @@ export async function migrate($: Api, root: string) {
   for (const key of folded) {
     await $.store.delete(key)
   }
+}
+
+// Up to 0.24 the plugin was called noticed-issues, and the engine keeps a plugin's
+// `$.store` in a file named after it, so every list stayed in that file. Copy its
+// keys over once, leaving any this store already has; the old file stays as it is.
+export const ADOPTED_KEY = 'adoptedFrom'
+const OLD_STORE = /^noticed-issues_.*\.json$/
+
+export async function adoptOldStore($: Api) {
+  if ((await $.store.get(ADOPTED_KEY)) !== undefined) {
+    return
+  }
+
+  const ran = await $.process.run(['sh', '-c', 'printf %s "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"']).catch(() => undefined)
+  if (ran?.exitCode !== 0 || ran.stdout === '') {
+    return
+  }
+
+  const dir = `${ran.stdout}/plugins/store`
+  const files = (await $.fs.list(dir).catch(() => [])).filter(f => f.kind === 'file' && OLD_STORE.test(f.name))
+  const have = new Set(await $.store.keys())
+
+  for (const file of files) {
+    const old = await $.fs
+      .read(`${dir}/${file.name}`)
+      .then(text => JSON.parse(text) as Record<string, unknown>)
+      .catch(() => ({}))
+    for (const [key, value] of Object.entries(old)) {
+      if (!have.has(key)) {
+        await $.store.set(key, value)
+        have.add(key)
+      }
+    }
+  }
+  await $.store.set(ADOPTED_KEY, files.map(f => f.name))
 }
 
 export async function toggleGroup($: Api, priority: Priority) {

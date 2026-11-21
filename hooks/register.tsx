@@ -8,10 +8,10 @@ import { onGithub, refreshGithub } from './github'
 import { arrange, cardColumnsOf, clip, count, firstCard, FOOT_ROWS, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
 import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
-import { addIssue, change, COLLAPSED_KEY, load, loadProjects, migrate, SETTINGS_KEY } from './store'
+import { addIssue, adoptOldStore, change, COLLAPSED_KEY, load, loadProjects, migrate, SETTINGS_KEY } from './store'
 import { scanTodos } from './todos'
 
-const PANE = 'noticed-issues'
+const PANE = 'notifly'
 const TITLE = 'Notifly'
 const NOTE = 'mcp__noticed-issues__note_issue'
 const RESOLVE = 'mcp__noticed-issues__resolve_issue'
@@ -24,17 +24,17 @@ const RELOAD_MS = 30_000
 const GITHUB_MS = 5 * 60_000
 
 // The priority groups folded in the pane, the same in every project.
-const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
+const collapsed = atom({ plugin: 'notifly', key: 'collapsed' } as const, [])
 // The settings, the same in every project.
-const settings = atom({ plugin: 'noticed-issues', key: 'settings' } as const, {})
+const settings = atom({ plugin: 'notifly', key: 'settings' } as const, {})
 // The card whose ✕ asks to confirm, for this session only.
-const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, null)
+const deleting = atom({ plugin: 'notifly', key: 'deleting' } as const, null)
 // The pane's tab, for this session only.
-const tab = atom({ plugin: 'noticed-issues', key: 'tab' } as const, 'all')
+const tab = atom({ plugin: 'notifly', key: 'tab' } as const, 'all')
 // Where each open group is scrolled to, for this session only.
-const scrolled = atom({ plugin: 'noticed-issues', key: 'scrolled' } as const, {})
+const scrolled = atom({ plugin: 'notifly', key: 'scrolled' } as const, {})
 // The time the cards' ages are told from, moved on once a minute: the pane redraws then, not on every tick.
-const minute = atom({ plugin: 'noticed-issues', key: 'minute' } as const, 0)
+const minute = atom({ plugin: 'notifly', key: 'minute' } as const, 0)
 const AGE_MS = 10_000
 
 const openPane = ($: Api) => $.ui.open({ id: PANE, title: TITLE })
@@ -55,6 +55,7 @@ export const register: Register = (on, options) => {
     session.github = options.github === 'on' || (options.github !== 'off' && onGithub(repo?.remote))
     session.nextId = 1
 
+    await adoptOldStore($)
     if (repo) {
       await migrate($, repo.root)
     }
@@ -236,7 +237,7 @@ export const register: Register = (on, options) => {
       ...ran,
       blocks: [
         ...ran.blocks,
-        { name: 'noticedIssuesRule', text: `When to note an issue in this repository (Notifly):\n${session.rule}` },
+        { name: 'notiflyRule', text: `When to note an issue in this repository (Notifly):\n${session.rule}` },
       ],
     }
   })
