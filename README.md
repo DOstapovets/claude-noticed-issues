@@ -252,4 +252,5 @@ see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-[MIT](./LICENSE)
+© 2026 Dmytro Ostapovets. All rights reserved. Free to install and use; copying,
+modifying or redistributing it needs written permission. See [LICENSE](./LICENSE).
