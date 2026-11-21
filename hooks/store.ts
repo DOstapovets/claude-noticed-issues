@@ -20,7 +20,7 @@ const projects = atom({ plugin: 'noticed-issues', key: 'projects' } as const, []
 // follows `$` into nothing else.
 
 // Called only after `load`, which took the stored `nextId` up into this one: it never goes back.
-export async function save($: Api, list: Issue[]) {
+async function save($: Api, list: Issue[]) {
   await update($, issues, () => list)
   const stored: Stored = {
     nextId: session.nextId,
@@ -40,31 +40,51 @@ export async function load($: Api) {
   return list
 }
 
+// This session's changes, one at a time: parallel tool calls, a press in the pane
+// and a GitHub pass would otherwise each read the list before the other saved it.
+let queue: Promise<unknown> = Promise.resolve()
+
+function serial<T>(run: () => Promise<T>) {
+  const ran = queue.then(run)
+  queue = ran.catch(() => undefined)
+  return ran
+}
+
 // Every change starts from the stored list, not the session's copy, which may be
 // up to RELOAD_MS behind another session's. `$.store` has no compare-and-set
-// (only get, set, delete and keys), so two sessions writing in the same moment
-// can still lose one change; that window is accepted.
+// (only get, set, delete and keys; each one alone is atomic across sessions), so
+// two sessions writing in the same moment can still lose one change; that window
+// is accepted.
 export async function change($: Api, fn: (list: Issue[]) => Issue[]) {
-  return save($, fn(await load($)))
+  return serial(async () => save($, fn(await load($))))
 }
 
 // A new issue at the next number, noted by this session, unless one with the
 // same title, ignoring case, is on the list already: that one is returned.
 export async function addIssue($: Api, fields: Pick<Issue, 'title' | 'detail' | 'file' | 'priority'>) {
-  const list = await load($)
-  const same = list.find(i => i.title.toLowerCase() === fields.title.toLowerCase())
+  const createdAt = await $.clock.now()
+  const noticedIn = await $.session.id()
+  const added = await serial(async () => {
+    const list = await load($)
+    const same = list.find(i => i.title.toLowerCase() === fields.title.toLowerCase())
 
-  if (same) {
-    return { issue: same, isNew: false }
+    if (same) {
+      return { issue: same, isNew: false }
+    }
+
+    const { title, ...rest } = fields
+    const issue: Issue = { id: session.nextId, title, createdAt, noticedIn, ...rest }
+    session.nextId += 1
+    await save($, [...list, issue])
+
+    return { issue, isNew: true }
+  })
+
+  if (added.isNew) {
+    await $.ui.toast(`⚑ noted #${added.issue.id}: ${added.issue.title}`)
   }
 
-  const { title, ...rest } = fields
-  const issue: Issue = { id: session.nextId, title, createdAt: await $.clock.now(), noticedIn: await $.session.id(), ...rest }
-  session.nextId += 1
-  await save($, [...list, issue])
-  await $.ui.toast(`⚑ noted #${issue.id}: ${title}`)
-
-  return { issue, isNew: true }
+  return added
 }
 
 // Each list in the store but this project's: those with issues first, then the

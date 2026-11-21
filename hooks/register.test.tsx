@@ -291,6 +291,34 @@ test('a change in the pane keeps what another session noted meanwhile', async ($
   ])
 })
 
+test('changes made at the same moment in one session all land, each issue at a number of its own', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+
+  // Parallel tool calls, a resolve among them, and a press in the pane.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const answers = await Promise.all([
+    $.tool.call({ tool: NOTE, title: 'Jest gate red on master' }),
+    $.tool.call({ tool: RESOLVE, id: 1 }),
+    $.tool.call({ tool: NOTE, title: 'Dead link in README' }),
+    $.tool.call({ tool: NOTE, title: 'Lockfile out of date' }),
+    $.tool.call({ tool: NOTE, title: 'dead link in readme' }),
+  ])
+  await ui.unmount()
+
+  expect(answers.map(answer)).toEqual([
+    'Noted as #2; the user sees it under /issues.',
+    'Resolved #1.',
+    'Noted as #3; the user sees it under /issues.',
+    'Noted as #4; the user sees it under /issues.',
+    'Already on the list as #3.',
+  ])
+  const kept = seen.store.get('issues:/proj/a')
+  expect(kept.items.map((i: { id: number }) => i.id)).toEqual([2, 3, 4])
+  expect(kept.nextId).toBe(5)
+})
+
 test('an issue is resolved only by its number', async ($, on) => {
   engine(on, { 'issues:/proj/a': { nextId: 2, items: 'not a list' } })
   await $.session.start(start('/proj/a'))

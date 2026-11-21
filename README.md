@@ -210,6 +210,10 @@ name it and tell its age. A list from an earlier version shows only its director
 until it next changes.
 
 Open sessions of the same project pick up each other's changes every 30 seconds.
+Within a session, changes made at the same moment (parallel `note_issue` calls, a press
+in the pane, a GitHub pass) are applied one after another, so none is lost and each
+entry gets a number of its own. Two sessions changing the list in the same instant can
+still lose one of the two changes: the store offers no way to rule that out.
 
 The settings, and which priority groups are folded, are kept once for every project.
 

@@ -113,6 +113,24 @@ and say in the PR that you did.
   scrolled, and the minute a card's age is told from. Each value is declared in
   `types/index.d.ts`.
 
+What the runtime guarantees, as of Claude Code 2.1.323:
+
+- **Sessions are isolated.** Each session is its own process and the module runs in an
+  environment of its own, so the module-level values (`session` in `context.ts`,
+  `filing`, `refreshing`, `starting`, the mutation queue in `store.ts`) belong to one
+  session and one repository; a reload starts them over. Only `$.store` is shared.
+- **`$.store` is one JSON file per plugin.** Every `get` reads the file, and each
+  `set` or `delete` rewrites it under a lock file, so one call never loses another
+  session's other keys. There is no compare-and-set: a `get` then `set` from two
+  sessions at once can lose one list change. Do not build a lock on `$.store`; it
+  cannot test and set in one call.
+- **Within a session, hooks interleave** at every `await` (parallel tool calls, a press,
+  a timer). Every change to the list goes through `change`, or `addIssue`, which share
+  one queue in `store.ts`, so each starts from what the one before saved. Never call
+  `change` from inside a function that `serial` already runs: it would wait for itself.
+- **`$.process.run` times out after 30 seconds** and then rejects, so the `.catch` on
+  each `gh` and `claude --bg` call also releases `filing`, `starting` and `refreshing`.
+
 A stored issue outlives every version of the plugin. A new field must be optional,
 and code must read an issue that lacks it (`priority` and `noticedIn` are examples).
 Removing or renaming a field needs a migration in `session.start`, as `migrate` does

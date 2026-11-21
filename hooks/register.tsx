@@ -8,7 +8,7 @@ import { onGithub, refreshGithub } from './github'
 import { arrange, cardColumnsOf, clip, count, firstCard, FOOT_ROWS, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
 import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
-import { addIssue, change, COLLAPSED_KEY, load, loadProjects, migrate, save, SETTINGS_KEY } from './store'
+import { addIssue, change, COLLAPSED_KEY, load, loadProjects, migrate, SETTINGS_KEY } from './store'
 import { scanTodos } from './todos'
 
 const PANE = 'noticed-issues'
@@ -198,15 +198,13 @@ export const register: Register = (on, options) => {
       return { result: 'Not resolved: `id` must be an issue number.' }
     }
 
-    const list = await load($)
+    let found = false
+    await change($, list => {
+      found = list.some(i => i.id === id)
+      return list.filter(i => i.id !== id)
+    })
 
-    if (!list.some(i => i.id === id)) {
-      return { result: `No open issue #${id}.` }
-    }
-
-    await save($, list.filter(i => i.id !== id))
-
-    return { result: `Resolved #${id}.` }
+    return { result: found ? `Resolved #${id}.` : `No open issue #${id}.` }
   })
 
   on('tool.call', { tool: SAVE_RULE }, async ($, e) => {
