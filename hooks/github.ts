@@ -54,7 +54,7 @@ export async function createGithubIssue($: Api, id: number) {
   void refreshGithub($)
 }
 
-// One pass at a time: the timer, `/issues` and a new issue may all ask for one.
+// One pass at a time: the timer, `/notifly` and a new issue may all ask for one.
 let refreshing = false
 
 type Viewed = {

@@ -1,8 +1,8 @@
 <p align="center"><img src="docs/assets/hero.png" alt="Notifly: Claude saw a bug next door. Now it won't get lost." width="100%"></p>
 
-# noticed-issues
+# Notifly
 
-A Claude Code plugin that keeps a per-project list of problems Claude noticed
+Notifly (installed as `noticed-issues`) is a Claude Code plugin that keeps a per-project list of problems Claude noticed
 **outside the current task** and is not fixing right now: a bug next door, a leaked
 secret, broken config, a failing check, stale docs. Instead of getting lost in the
 conversation, each finding goes on a list that survives across sessions, grouped by
@@ -51,8 +51,8 @@ Call `resolve_issue` once such an issue is fixed.
 current session has noted something it says how many, `⚑ 3 issues · 1 this session`. It is
 hidden while the list is empty, and any band another plugin draws there stays below it.
 
-**The "Noticed issues" pane** opens by itself when the list has something on it, and
-with `/issues`. Entries are grouped under **▾ High**, **▾ Medium** and **▾ Low**. Press
+**The "Notifly" pane** opens by itself when the list has something on it, and
+with `/notifly`. Entries are grouped under **▾ High**, **▾ Medium** and **▾ Low**. Press
 a group's heading to fold it (`▸ High 2`) or open it again; a folded group keeps its
 place, so High stays on top. An open group takes the rows its cards need. When
 they do not all fit, a group that needs no more than an even share keeps what it needs and
@@ -93,7 +93,7 @@ which pushes it down only once the list is longer than the pane.
 
 **Other projects.** Once another project has a list too, a **Projects** tab stands in
 the footer, in a secondary color, also when this project's list is
-empty (open the pane with `/issues`). It
+empty (open the pane with `/notifly`). It
 lists this project first, in the accent color and marked `this project` (pressing it
 leads back to its own list), then every other project the plugin has kept a list for, one row each, a blank row apart: its name
 (`owner/repo` from its `origin` remote, else its directory's name), its directory, how many entries
@@ -101,7 +101,7 @@ it has in each priority, in the groups' colors (`● 2 ● 1`), and when its lis
 changed. Projects with no entries left come last, dimmed, as `no issues`. Press a
 project to see its entries in the same groups and cards, read only: no **▶**, **↗**,
 **✕** or **▲ / ▼**; open a session in that project to act on them. **← Projects**
-leads back to the list. The list is read again each time the tab is pressed, on `/issues`, and, while the tab is open,
+leads back to the list. The list is read again each time the tab is pressed, on `/notifly`, and, while the tab is open,
 every 30 seconds.
 
 **Settings.** **⚙ Settings**, in the footer's secondary color, shows the settings in
@@ -117,7 +117,7 @@ like `TODO_LIST`, or Markdown's `**TODO**`, does not; nor does an opening inside
 quotes, such as a test's fixture `'a.ts:1:// TODO: x'`. The text ends where the comment
 closes (`*/`, `-->`), and a tag followed only by punctuation is named after the tag and its
 place, `TODO in a.ts:4`. They are found with `git grep` when the setting is switched on, at session start, when the tab is pressed, on
-`/issues` and, while the tab is open, every 30 seconds; they are not stored, so a comment
+`/notifly` and, while the tab is open, every 30 seconds; they are not stored, so a comment
 taken out of the code leaves the tab. The groups are headed by tags: **FIXME**, **HACK ·
 XXX**, **TODO**. Each card shows the comment's text and `path:line`, with two controls:
 **→ List** notes it as an entry at its group's priority, whose detail asks to remove the
@@ -137,11 +137,11 @@ with the counts beside it, its directory on a line below.
 
 **Commands:**
 
-- `/issues` opens the pane (or prints the list, highest priority first, when no pane
+- `/notifly` opens the pane (or prints the list, highest priority first, when no pane
   can be placed right now) and refreshes GitHub statuses.
-- `/issues clear` empties the project's list.
-- `/issues setup` starts the analysis that writes the [repository rule](#repository-rule), again whenever you want it redone.
-- `/issues feedback` does what the pane's **✎ Feedback** button does, below.
+- `/notifly clear` empties the project's list.
+- `/notifly setup` starts the analysis that writes the [repository rule](#repository-rule), again whenever you want it redone.
+- `/notifly feedback` does what the pane's **✎ Feedback** button does, below.
 
 **✎ Feedback**, in the pane's footer, is for reporting something about this plugin
 itself. It starts a background session (`claude attach <id>` joins it, as the toast
@@ -162,7 +162,7 @@ repository, its docs, checks, config and what is already on the list, and drafts
 short rule: what counts as a problem outside the task here, with examples from this
 stack and these paths, how to pick a priority, and what not to note. It shows you
 the draft, asks whether to note the problems it found on the way, and saves the rule
-once you confirm. **Not now** asks no more; `/issues setup` starts it later, or
+once you confirm. **Not now** asks no more; `/notifly setup` starts it later, or
 redoes the rule.
 
 The rule is kept in the plugin's store, under `rule:` beside the repository's list,
@@ -173,7 +173,7 @@ repository started after it was saved, its worktrees included.
 
 The status of each linked issue is read with
 `gh issue view <url> --json state,projectItems`: at session start, right after the
-issue is filed, on `/issues`, and every 5 minutes after that. Entries without a link
+issue is filed, on `/notifly`, and every 5 minutes after that. Entries without a link
 cost nothing. When `gh` does not answer, the last known status stays.
 
 When the GitHub issue is **closed**, as completed or as not planned, the entry is
@@ -225,7 +225,7 @@ claude --plugin-dir .         # a session with this checkout loaded
 
 | File | What is in it |
 | --- | --- |
-| `hooks/register.tsx` | The hooks module: tools, `/issues`, the count, and the files it imports for the store, GitHub, background sessions, layout and the pane (listed in [AGENTS.md](./AGENTS.md#layout)). |
+| `hooks/register.tsx` | The hooks module: tools, `/notifly`, the count, and the files it imports for the store, GitHub, background sessions, layout and the pane (listed in [AGENTS.md](./AGENTS.md#layout)). |
 | `hooks/*.test.ts(x)` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
 | `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus`, `Stored`, `Rule`, `Project` and `Settings` types and the `$.state` contract. |
 

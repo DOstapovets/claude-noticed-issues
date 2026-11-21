@@ -591,7 +591,7 @@ export async function renderPane($: Api, e: PaneRender) {
       {/* VS Code heads the pane with its title already. */}
       {!titled && (
         <Box marginBottom={1}>
-          <Text bold>Noticed issues{list.length > 0 ? ` ${list.length}` : ''}</Text>
+          <Text bold>Notifly{list.length > 0 ? ` ${list.length}` : ''}</Text>
         </Box>
       )}
       {hasTabs && <Box marginBottom={1}>{tabs}</Box>}

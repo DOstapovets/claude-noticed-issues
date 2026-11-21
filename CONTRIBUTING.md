@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in noticed-issues.
+Thanks for your interest in Notifly.
 
 ## Reporting bugs and requesting features
 

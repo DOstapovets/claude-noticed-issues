@@ -12,7 +12,7 @@ import { addIssue, change, COLLAPSED_KEY, load, loadProjects, migrate, save, SET
 import { scanTodos } from './todos'
 
 const PANE = 'noticed-issues'
-const TITLE = 'Noticed issues'
+const TITLE = 'Notifly'
 const NOTE = 'mcp__noticed-issues__note_issue'
 const RESOLVE = 'mcp__noticed-issues__resolve_issue'
 const SAVE_RULE = 'mcp__noticed-issues__save_issue_rule'
@@ -73,7 +73,7 @@ export const register: Register = (on, options) => {
       description:
         'Record a problem you noticed that is NOT part of the current task and that you are not fixing now ' +
         '(a bug, a leaked secret, broken config, a failing check, stale docs). It goes on the user\'s ' +
-        'per-project "noticed issues" list, kept across sessions. Mention it in one line in your reply too. ' +
+        'per-project Notifly list, kept across sessions. Mention it in one line in your reply too. ' +
         'Do not use it for steps of the current task: those belong in the task list.',
       inputSchema: {
         type: 'object',
@@ -93,7 +93,7 @@ export const register: Register = (on, options) => {
     })
     await $.tool.register({
       name: 'resolve_issue',
-      description: 'Remove an issue from the noticed-issues list once it has been fixed or is no longer relevant.',
+      description: 'Remove an issue from the Notifly list once it has been fixed or is no longer relevant.',
       inputSchema: {
         type: 'object',
         properties: { id: { type: 'number', description: 'The issue number, as note_issue returned it' } },
@@ -104,7 +104,7 @@ export const register: Register = (on, options) => {
     await $.tool.register({
       name: 'save_issue_rule',
       description:
-        'Save when to note an issue in this repository, as the noticed-issues setup worked it out with the user. ' +
+        'Save when to note an issue in this repository, as the Notifly setup worked it out with the user. ' +
         'It goes into the context of every later session in the repository and replaces the rule saved before.',
       inputSchema: {
         type: 'object',
@@ -113,9 +113,9 @@ export const register: Register = (on, options) => {
       },
     })
     await $.command.register({
-      name: 'issues',
+      name: 'notifly',
       description:
-        "Show this project's noticed issues; `/issues clear` empties the list, `/issues setup` analyzes the repository to write when to note an issue here, `/issues feedback` reports a bug or an idea about this plugin",
+        "Show this project's Notifly list; `/notifly clear` empties the list, `/notifly setup` analyzes the repository to write when to note an issue here, `/notifly feedback` reports a bug or an idea about this plugin",
       argumentHint: '[clear|setup|feedback]',
     })
 
@@ -127,7 +127,7 @@ export const register: Register = (on, options) => {
     await tick()
     $.clock.every(AGE_MS, () => void tick())
     // The other projects, and the comments in the code, are read again only while their tab is open:
-    // pressing it, and `/issues`, read them too.
+    // pressing it, and `/notifly`, read them too.
     $.clock.every(RELOAD_MS, async () => {
       await load($)
       const open = await read($, tab)
@@ -188,7 +188,7 @@ export const register: Register = (on, options) => {
     void openPane($)
 
     const note = cut.length > 0 ? ` (${cut.join(', ')})` : ''
-    return { result: `Noted as #${issue.id}${note}; the user sees it under /issues.` }
+    return { result: `Noted as #${issue.id}${note}; the user sees it under /notifly.` }
   })
 
   on('tool.call', { tool: RESOLVE }, async ($, e) => {
@@ -238,12 +238,12 @@ export const register: Register = (on, options) => {
       ...ran,
       blocks: [
         ...ran.blocks,
-        { name: 'noticedIssuesRule', text: `When to note an issue in this repository (noticed-issues):\n${session.rule}` },
+        { name: 'noticedIssuesRule', text: `When to note an issue in this repository (Notifly):\n${session.rule}` },
       ],
     }
   })
 
-  on('command.run', { command: 'issues' }, async ($, e) => {
+  on('command.run', { command: 'notifly' }, async ($, e) => {
     if (e.args.trim() === 'setup') {
       const sessionId = await startSetup($)
       return {
@@ -269,7 +269,7 @@ export const register: Register = (on, options) => {
 
     if (e.args.trim() === 'clear') {
       await change($, () => [])
-      return { text: 'Noticed issues cleared for this project.' }
+      return { text: 'Notifly list cleared for this project.' }
     }
 
     const list = await load($)
@@ -279,13 +279,13 @@ export const register: Register = (on, options) => {
     const opened = await openPane($)
 
     if (opened.isPlaced) {
-      return { text: `Noticed issues: ${count(list.length)}.` }
+      return { text: `Notifly: ${count(list.length)}.` }
     }
 
     return {
       text:
         list.length === 0
-          ? 'No noticed issues.'
+          ? 'Nothing on the Notifly list.'
           : [...list]
               .sort((a, b) => rank(a) - rank(b))
               .map(i => `[${PRIORITIES[rank(i)]!.label}] #${i.id} ${i.title}${i.file ? ` (${i.file})` : ''}`)
