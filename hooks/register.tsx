@@ -4,7 +4,7 @@ import type { Register } from 'claude-code'
 import type { Priority, Rule, Settings } from '../types'
 import { MINUTE, session } from './context'
 import type { Api } from './context'
-import { onGithub, refreshGithub } from './github'
+import { GITHUB_MS, onGithub, refreshGithub } from './github'
 import { arrange, cardColumnsOf, clip, count, firstCard, FOOT_ROWS, headRows, LIMITS, PRIORITIES, rank } from './layout'
 import { renderPane, view } from './pane'
 import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
@@ -20,8 +20,6 @@ const RULE_LIMIT = 4000
 // Another session of this project (a background one started from the pane)
 // may resolve issues; pick its changes up this often.
 const RELOAD_MS = 30_000
-// Each linked GitHub issue costs one `gh` call, so its status is read less often.
-const GITHUB_MS = 5 * 60_000
 
 // The priority groups folded in the pane, the same in every project.
 const collapsed = atom({ plugin: 'noticely', key: 'collapsed' } as const, [])
@@ -316,7 +314,7 @@ export const register: Register = (on, options) => {
     const list = await load($)
     await loadProjects($)
     await scanTodos($)
-    void refreshGithub($)
+    void refreshGithub($, true)
     const opened = await openPane($)
 
     if (opened.isPlaced) {

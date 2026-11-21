@@ -48,7 +48,7 @@ hooks/register.tsx               Wiring: session.start, the tools, /noticely, th
 hooks/context.ts                 What the modules share for the session (`session`), Api, MINUTE
 hooks/store.ts                   The list and the folded groups in $.store: load, save, change, migrate
 hooks/layout.ts                  Pure layout and card text: arrange, cardRows, age, clip, LIMITS
-hooks/github.ts                  GitHub issues through gh: filing one, reading its status
+hooks/github.ts                  GitHub through gh: filing an issue, reading statuses and pull requests in batches
 hooks/sessions.ts                Background sessions through claude --bg: a fix, Feedback
 hooks/todos.ts                   TODO, FIXME, HACK and XXX comments through git grep, for the Code tab
 hooks/pane.tsx                   The pane: groups, cards, tabs, scrolling
@@ -109,7 +109,8 @@ and say in the PR that you did.
   `issues:<main worktree root>` (`issues:<cwd>` outside a repository), with its
   `remote`, `updatedAt` and `done` (the resolved issues kept for the Completed tab, `keepDays` in the settings), the repository's rule under `rule:<same root>` (when the
   setup was offered and the text it saved, added to each conversation by
-  `prompt.context`), the folded groups under `collapsed`, and the settings under `settings`
+  `prompt.context`), when GitHub was last asked about the list and until when it is
+  paused for its rate limit under `github:<same root>`, the folded groups under `collapsed`, and the settings under `settings`
   (the experimental Code tab, off unless `todos` is true), and under `adoptedFrom` the
   store files of the former names, `noticed-issues` and `notifly`, that `adoptOldStore` copied once. The
   Projects tab reads every other `issues:` key.

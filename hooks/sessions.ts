@@ -3,6 +3,7 @@ import { atom, read } from 'claude-code'
 import type { Issue } from '../types'
 import { session } from './context'
 import type { Api } from './context'
+import { pullMarker } from './github'
 import { change } from './store'
 
 // The engine's scan reads a `$.state` value only from a const of the file that
@@ -19,6 +20,9 @@ const prompt = (issue: Issue) =>
     issue.detail && `Detail: ${issue.detail}`,
     issue.githubUrl && `GitHub issue: ${issue.githubUrl}`,
     `When it is fixed, call resolve_issue with id ${issue.id}.`,
+    // The marker lets the pane find the pull request; `Closes` links it to the GitHub issue as well.
+    `If you open a pull request for it, end its description with the line "${pullMarker(issue)}"` +
+      (issue.githubUrl ? ` and a line "Closes ${issue.githubUrl}".` : '.'),
   ]
     .filter(Boolean)
     .join('\n')

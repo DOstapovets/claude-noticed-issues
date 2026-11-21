@@ -72,12 +72,16 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     grep: '' as string | null,
     // How many times `git grep` was run.
     grepped: 0,
-    // What `gh issue view` answers, and the URLs it was asked about.
-    // A function answers per URL.
+    // What GitHub answers for each linked issue, as `gh issue view --json state,projectItems` would,
+    // with `pulls`, the pull requests that close it; a function answers per URL. And the URLs asked about.
     github: { state: 'OPEN', projectItems: [] } as unknown,
     viewed: [] as string[],
-    // What `gh issue view` waits for before it answers.
+    // Each `gh api graphql` query, with its host; what it waits for before it answers;
+    // the rate limit it reports; and the pull requests the search for marked ones finds.
+    queries: [] as { host: string; query: string }[],
     viewHold: undefined as Promise<void> | undefined,
+    rate: { remaining: 5000, resetAt: '2026-11-21T13:00:00Z' } as { remaining: number; resetAt: string },
+    marked: [] as unknown[],
     // What `session.id` answers.
     session: 'session-a',
     // What `session.surfaces` answers.
@@ -173,19 +177,34 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
       seen.argv.push(e.argv)
       return { value: { exitCode: 1, stdout: '', stderr: seen.fail, isStdoutTruncated: false, isStderrTruncated: false } }
     }
-    if (e.argv[0] === 'gh' && e.argv[2] === 'view') {
-      seen.viewed.push(e.argv[3] ?? '')
+    if (e.argv[0] === 'gh' && e.argv[1] === 'api') {
+      const host = e.argv[e.argv.indexOf('--hostname') + 1] ?? ''
+      const query = e.argv.find(arg => arg.startsWith('query='))?.slice('query='.length) ?? ''
+      seen.queries.push({ host, query })
       await seen.viewHold
+      // Each issue asked about, answered from `seen.github` as `gh issue view` would have.
+      const data: Record<string, unknown> = { rateLimit: seen.rate }
+      for (const [, alias, owner, name, number] of query.matchAll(
+        /(i\d+): repository\(owner: "([^"]+)", name: "([^"]+)"\) \{ issue\(number: (\d+)\)/g,
+      )) {
+        const url = `https://${host}/${owner}/${name}/issues/${number}`
+        seen.viewed.push(url)
+        const viewed = (typeof seen.github === 'function' ? seen.github(url) : seen.github) as {
+          state?: string
+          projectItems?: { status: { name: string } | null }[]
+          pulls?: unknown[]
+        }
+        data[alias!] = {
+          issue: {
+            state: viewed.state,
+            ...(viewed.projectItems ? { projectItems: { nodes: viewed.projectItems.map(item => ({ fieldValueByName: item.status })) } } : {}),
+            closedByPullRequestsReferences: { nodes: viewed.pulls ?? [] },
+          },
+        }
+      }
+      if (query.includes('marked: search')) data.marked = { nodes: seen.marked }
       return {
-        value: {
-          exitCode: 0,
-          stdout: JSON.stringify(
-            typeof seen.github === 'function' ? seen.github(e.argv[3]) : seen.github,
-          ),
-          stderr: '',
-          isStdoutTruncated: false,
-          isStderrTruncated: false,
-        },
+        value: { exitCode: 0, stdout: JSON.stringify({ data }), stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
       }
     }
     seen.argv.push(e.argv)
@@ -593,13 +612,19 @@ test('gh missing, logged out or rate limited changes nothing on the list, and th
   await seen.clock.advance(5 * 60_000)
   expect(seen.store.get('issues:/proj/a')).toEqual(before)
 
-  // Back again: the pass that follows reads the status, the press files the issue.
+  // Back again: once the pause a rate limit starts is over, the pass that follows reads
+  // the status; the press files the issue.
   seen.fail = null
   seen.github = { state: 'OPEN', projectItems: [{ status: { name: '📋 To do' }, title: 'Roadmap' }] }
   await seen.clock.advance(5 * 60_000)
+  expect(seen.store.get('issues:/proj/a')).toEqual(before)
+  await seen.clock.advance(10 * 60_000)
   expect(seen.store.get('issues:/proj/a').items[0].github).toEqual({ state: 'OPEN', board: '📋 To do' })
   await ui.press({ key: 'github-2' })
   expect(seen.store.get('issues:/proj/a').items[1].githubUrl).toBe('https://github.com/o/r/issues/42')
+  // The pass a new link starts reads it at once, even five minutes being not yet up.
+  await seen.clock.settle()
+  expect(seen.viewed.at(-1)).toBe('https://github.com/o/r/issues/42')
   await ui.unmount()
 })
 
@@ -1789,24 +1814,140 @@ test('a resolve and a press each read the list once and write it once, a note re
   await ui.unmount()
 })
 
-test('a GitHub pass asks gh once for each linked issue, and a pass is not started while one runs', GITHUB_ON, async ($, on) => {
-  const linked = Array.from({ length: 10 }, (_, i) => ({
+test('a GitHub pass asks about 25 linked issues a query, and a pass is not started while one runs', GITHUB_ON, async ($, on) => {
+  const linked = Array.from({ length: 60 }, (_, i) => ({
     id: i + 1,
     title: `Linked ${i + 1}`,
     createdAt: 1,
     githubUrl: `https://github.com/o/r/issues/${i + 1}`,
   }))
   const seen = engine(on, {
-    'issues:/proj/a': { nextId: 12, items: [...linked, { id: 11, title: 'Not linked', createdAt: 1 }] },
+    'issues:/proj/a': { nextId: 62, items: [...linked, { id: 61, title: 'Not linked', createdAt: 1 }] },
   })
   let release = () => {}
   seen.viewHold = new Promise<void>(resolve => (release = resolve))
   await $.session.start(start('/proj/a'))
   // The first pass waits on gh; two more five-minute ticks come meanwhile and start none.
   await seen.clock.advance(2 * 5 * 60_000)
-  expect(seen.viewed).toHaveLength(1)
+  expect(seen.queries).toHaveLength(1)
   release()
   await seen.clock.settle()
-  expect(seen.viewed).toHaveLength(10)
-  expect(new Set(seen.viewed).size).toBe(10)
+  expect(seen.queries).toHaveLength(3)
+  expect(seen.viewed).toHaveLength(60)
+  expect(new Set(seen.viewed).size).toBe(60)
+})
+
+const noticely = { command: 'noticely', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 160 } } as const
+
+test('a repository is read on GitHub once in five minutes, whichever of its sessions comes first; /noticely reads it at once', GITHUB_ON, async ($, on) => {
+  const seen = engine(on, {
+    'issues:/proj/a': { nextId: 2, items: [{ id: 1, title: 'Linked', createdAt: 1, githubUrl: 'https://github.com/o/r/issues/7' }] },
+    // Another session of the repository read it just now.
+    'github:/proj/a': { checkedAt: 1_000 },
+  })
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  expect(seen.queries).toHaveLength(0)
+
+  await $.command.run(noticely)
+  await seen.clock.settle()
+  expect(seen.queries).toHaveLength(1)
+  const written = seen.written.issues ?? 0
+
+  // Three minutes on, another session reads it: this one's tick two minutes later asks nothing.
+  await seen.clock.advance(3 * 60_000)
+  seen.store.set('github:/proj/a', { checkedAt: seen.clock.now() })
+  await seen.clock.advance(2 * 60_000)
+  expect(seen.queries).toHaveLength(1)
+  // Its next tick does; the same answer again writes nothing.
+  await seen.clock.advance(5 * 60_000)
+  expect(seen.queries).toHaveLength(2)
+  expect(seen.written.issues ?? 0).toBe(written)
+})
+
+test('with the rate limit low, no session asks GitHub until it resets', GITHUB_ON, async ($, on) => {
+  const seen = engine(on, {
+    'issues:/proj/a': { nextId: 2, items: [{ id: 1, title: 'Linked', createdAt: 1, githubUrl: 'https://github.com/o/r/issues/7' }] },
+  })
+  const reset = 1_000 + 20 * 60_000
+  seen.rate = { remaining: 150, resetAt: new Date(reset).toISOString() }
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  expect(seen.queries).toHaveLength(1)
+  // What it found still lands; the pause is kept for the repository's other sessions too.
+  expect(seen.store.get('issues:/proj/a').items[0].github).toEqual({ state: 'OPEN' })
+  expect(seen.store.get('github:/proj/a').pausedUntil).toBe(reset)
+
+  seen.rate = { remaining: 5000, resetAt: new Date(reset + 60 * 60_000).toISOString() }
+  await seen.clock.advance(15 * 60_000)
+  await $.command.run(noticely)
+  await seen.clock.settle()
+  expect(seen.queries).toHaveLength(1)
+  await seen.clock.advance(5 * 60_000)
+  expect(seen.queries).toHaveLength(2)
+})
+
+test('issues on another GitHub host are asked about on that host', GITHUB_ON, async ($, on) => {
+  const seen = engine(on, {
+    'issues:/proj/a': {
+      nextId: 3,
+      items: [
+        { id: 1, title: 'On github.com', createdAt: 1, githubUrl: 'https://github.com/o/r/issues/7' },
+        { id: 2, title: 'On Enterprise', createdAt: 1, githubUrl: 'https://github.example.com/o/r/issues/3' },
+      ],
+    },
+  })
+  await $.session.start(start('/proj/a'))
+  await seen.clock.settle()
+  expect(seen.queries.map(q => q.host)).toEqual(['github.com', 'github.example.com'])
+  expect(seen.viewed).toEqual(['https://github.com/o/r/issues/7', 'https://github.example.com/o/r/issues/3'])
+})
+
+test('a card shows the pull request that closes its GitHub issue, or the one its session marked', GITHUB_ON, async ($, on) => {
+  const seen = engine(on, {
+    'issues:/repo': {
+      nextId: 4,
+      items: [
+        { id: 1, title: 'Linked', createdAt: 1, githubUrl: 'https://github.com/o/r/issues/7' },
+        { id: 2, title: 'Being fixed', createdAt: 5, sessionId: 'abcd1234' },
+        { id: 3, title: 'Not started', createdAt: 6 },
+      ],
+    },
+  })
+  seen.repo = '/repo'
+  seen.remote = 'git@github.com:o/r.git'
+  // An open draft beats a closed one.
+  seen.github = {
+    state: 'OPEN',
+    projectItems: [],
+    pulls: [
+      { number: 9, url: 'https://github.com/o/r/pull/9', state: 'CLOSED', isDraft: false },
+      { number: 12, url: 'https://github.com/o/r/pull/12', state: 'OPEN', isDraft: true },
+    ],
+  }
+  // The marker names the issue and when it was noticed: #2 noticed at another time is another list's #2.
+  seen.marked = [
+    { number: 20, url: 'https://github.com/o/r/pull/20', state: 'MERGED', isDraft: false, body: 'Fix it\n\nNoticely issue #2 (noticed 5)' },
+    { number: 21, url: 'https://github.com/o/r/pull/21', state: 'OPEN', isDraft: false, body: 'Noticely issue #2 (noticed 6)' },
+  ]
+  await $.session.start(start('/repo'))
+  await seen.clock.settle()
+  expect(seen.queries).toHaveLength(1)
+  expect(seen.queries[0]?.query).toContain('repo:o/r is:pr')
+
+  const items = seen.store.get('issues:/repo').items
+  expect(items.map((i: { pull?: unknown }) => i.pull)).toEqual([
+    { number: 12, url: 'https://github.com/o/r/pull/12', state: 'OPEN', isDraft: true },
+    { number: 20, url: 'https://github.com/o/r/pull/20', state: 'MERGED' },
+    undefined,
+  ])
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ key: 'pull-1' }))?.text).toBe('⎇ PR #12 · draft')
+  expect((await ui.find({ key: 'pull-2' }))?.text).toBe('⎇ PR #20 · merged')
+  expect(await ui.find({ key: 'pull-3' })).toBeUndefined()
+
+  // A session started for an issue is asked to mark its pull request so.
+  await ui.press({ key: 'session-3' })
+  expect(seen.argv.at(-1)?.[2]).toContain('end its description with the line "Noticely issue #3 (noticed 6)".')
+  await ui.unmount()
 })
