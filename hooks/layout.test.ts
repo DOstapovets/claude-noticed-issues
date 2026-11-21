@@ -38,6 +38,8 @@ test("a card's rows: heading, file, detail cut to three lines, border and contro
   // `#1 Short`, then the border's two rows, the controls' row and a blank row.
   expect(cardRows(issue(), 40, false, NOW)).toBe(5)
   expect(cardRows(issue({ file: 'src/a.ts' }), 40, false, NOW)).toBe(6)
+  // A pull request's row, under the heading.
+  expect(cardRows(issue({ pull: { number: 12, url: 'https://github.com/o/r/pull/12', state: 'OPEN' } }), 40, false, NOW)).toBe(6)
   expect(cardRows(issue({ detail: 'one line' }), 40, false, NOW)).toBe(6)
   // Five hundred characters of detail are drawn cut to 3 × 40 characters.
   expect(DETAIL_LINES).toBe(3)

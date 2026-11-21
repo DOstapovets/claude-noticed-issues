@@ -12,8 +12,19 @@ export type Issue = {
   sessionId?: string
   /** The GitHub issue created for it from the pane, if any. */
   githubUrl?: string
-  /** That GitHub issue's status, as `gh issue view` last reported it; once it is closed the issue is removed. */
+  /** That GitHub issue's status, as GitHub last reported it; once it is closed the issue is removed. */
   github?: GithubStatus
+  /** The pull request for it: one that closes its GitHub issue, or one its session marked; absent until one is found. */
+  pull?: Pull
+}
+
+/** A pull request as GitHub last reported it. */
+export type Pull = {
+  number: number
+  url: string
+  state: 'OPEN' | 'CLOSED' | 'MERGED'
+  /** Present, and true, only while it is a draft. */
+  isDraft?: boolean
 }
 
 export type Priority = 'high' | 'medium' | 'low'
@@ -50,6 +61,12 @@ export type Stored = {
   remote?: string
   /** When the list last changed; absent on lists from before 0.22. */
   updatedAt?: number
+}
+
+/** What `$.store` keeps per repository under `github:<root>`, shared by its sessions: when GitHub was last asked about its list, and until when it is not asked, as its rate limit ran low. */
+export type GithubChecked = {
+  checkedAt?: number
+  pausedUntil?: number
 }
 
 /** What `$.store` keeps per repository under `rule:<root>`: when the analysis was offered, and the rule it saved, if any. */

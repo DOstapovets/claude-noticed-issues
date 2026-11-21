@@ -74,7 +74,8 @@ three lines. These are its controls:
 
 - **▶ New session** starts `claude --bg` with a prompt to fix the issue that ends by
   asking it to call `resolve_issue`. The card then shows the session id, which
-  `claude attach <id>` connects to.
+  `claude attach <id>` connects to, and later the pull request the session opened:
+  see [GitHub status](#github-status).
 - **↗ GitHub issue** files it with `gh issue create` in the repository of the session's
   directory: the title becomes the issue title, `detail` and `file` its body. The card's
   heading then links it next to the number, on a line of its own above the title:
@@ -176,10 +177,26 @@ repository started after it was saved, its worktrees included.
 
 ## GitHub status
 
-The status of each linked issue is read with
-`gh issue view <url> --json state,projectItems`: at session start, right after the
-issue is filed, on `/noticely`, and every 5 minutes after that. Entries without a link
-cost nothing. When `gh` does not answer, the last known status stays.
+The status of each linked issue is read with `gh api graphql`: at session start,
+right after the issue is filed, on `/noticely`, and every 5 minutes after that.
+Entries with no link and no session cost nothing. When `gh` does not answer, the last
+known status stays.
+
+GitHub's rate limit is kept in mind:
+
+- One query asks about 25 issues at a time, and costs one point of the 5000 an hour.
+- A repository is read once in 5 minutes, by whichever of its sessions comes first.
+  The others pick up what it found when they next reload the list. `/noticely` and a
+  newly filed issue read it at once.
+- When fewer than 200 points are left, or GitHub refuses a query as over the limit,
+  no session of the repository asks again until the limit resets.
+
+The same query finds the **pull request** for an entry. It is either a pull request
+that closes its GitHub issue, or one a background session opened for it. The session
+is asked to end the pull request's description with `Noticely issue #3 (noticed …)`,
+and a search of the repository's pull requests finds that line. The card shows the
+pull request on a row under its heading, `⎇ PR #12 · draft`, then `open`, `merged`
+or `closed`. With several, an open one wins over a merged one, then the newest.
 
 When the GitHub issue is **closed**, as completed or as not planned, the entry is
 removed from the list and a toast says `✓ closed on GitHub, removed: #1`. This is
@@ -239,7 +256,7 @@ claude --plugin-dir .         # a session with this checkout loaded
 | --- | --- |
 | `hooks/register.tsx` | The hooks module: tools, `/noticely`, the count, and the files it imports for the store, GitHub, background sessions, layout and the pane (listed in [AGENTS.md](./AGENTS.md#layout)). |
 | `hooks/*.test.ts(x)` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
-| `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus`, `Stored`, `Rule`, `Project` and `Settings` types and the `$.state` contract. |
+| `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus`, `Pull`, `GithubChecked`, `Stored`, `Rule`, `Project` and `Settings` types and the `$.state` contract. |
 
 How to work on it, for people and agents alike, is in [AGENTS.md](./AGENTS.md); branch,
 commit, version and PR conventions in [docs/git_and_pr_conventions.md](./docs/git_and_pr_conventions.md).

@@ -255,6 +255,20 @@ export async function renderPane($: Api, e: PaneRender) {
         )}
         {corner(issue)}
       </Box>
+      {issue.pull && (
+        <Box key={`pull-${issue.id}`} flexShrink={0}>
+          <Link href={issue.pull.url} label={`⎇ PR #${issue.pull.number}`} />
+          {issue.pull.state === 'MERGED' ? (
+            <Text color="cyan"> · merged</Text>
+          ) : issue.pull.state === 'CLOSED' ? (
+            <Text dimColor> · closed</Text>
+          ) : issue.pull.isDraft ? (
+            <Text dimColor> · draft</Text>
+          ) : (
+            <Text color="success"> · open</Text>
+          )}
+        </Box>
+      )}
       {issue.file && (
         <Text dimColor wrap="truncate-middle">
           {issue.file}

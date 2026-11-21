@@ -26,7 +26,8 @@ each `$.state` write, so they do not depend on the machine's speed:
 | A reload | 1 read of the list; with Projects open, 1 more for each other project |
 | `resolve_issue`, a press in the pane | 1 read and 1 write of the list |
 | `note_issue` | 2 reads (near duplicates, then the add) and 1 write |
-| A GitHub pass | 1 `gh issue view` for each linked issue; no pass while one runs |
+| A GitHub pass | 1 `gh api graphql` per 25 linked issues, one host a query; no pass while one runs |
+| A repository's sessions | 1 GitHub pass in 5 minutes between them; none while the rate limit is low |
 
 Timing tests are in `hooks/perf.test.ts`, on lists far longer than usual. Each
 is either a budget about ten times what a laptop takes, or how the time grows
@@ -50,6 +51,21 @@ past 8.
   quotes from the start of the line again: a minified line with 3000 tags inside
   strings took 99 ms. The line is now walked once for all of its tags.
 
+## GitHub
+
+A pass used to call `gh issue view` once per linked issue, in every session of the
+repository. Now one `gh api graphql` query asks about 25 issues and the pull
+requests that close them, and costs one point of the 5000 an hour. The first
+query also searches for the pull requests that fix sessions marked. A
+repository's sessions share `github:<root>` in `$.store`:
+
+- `checkedAt`: a pass is made only when the last one, by any of the sessions, is
+  at least 4.5 minutes old. `/noticely` and a newly filed issue skip this check.
+- `pausedUntil`: below 200 points left, until the reset GitHub reports. After a
+  rate-limit refusal, for 15 minutes. No pass at all, forced or not, until then.
+
+A pass that learns nothing new writes nothing.
+
 ## Left as it is
 
 - **`note_issue` reads the list twice.** Both reads see what other sessions
@@ -58,10 +74,6 @@ past 8.
 - **The Projects tab reads each other project's list on every reload.** The
   store has no call that reads several keys at once. It only happens while that
   tab is open.
-- **A GitHub pass asks `gh` one issue at a time.** Each call can take up to the
-  30-second timeout of `$.process.run`, so 50 linked issues can take minutes.
-  Asking in parallel would get to GitHub's rate limit sooner. The pass is
-  guarded, so passes do not pile up.
 - **`arrange` takes about 0.07 ms per card**, mostly `clipRows`, which cuts a
   detail one character at a time. It is linear and fast enough for any list the
   store can hold.

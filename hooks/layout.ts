@@ -162,7 +162,7 @@ export const cardRows = (issue: Issue, columns: number, isConfirming: boolean, n
   const detail = issue.detail ? wrappedRows(clipRows(issue.detail, columns, DETAIL_LINES), columns) : 0
 
   // With the border's two rows, the controls' row and the blank row below the card.
-  return title + (issue.file ? 1 : 0) + detail + (kind === 'readOnly' ? 3 : 4)
+  return title + (issue.pull ? 1 : 0) + (issue.file ? 1 : 0) + detail + (kind === 'readOnly' ? 3 : 4)
 }
 
 // A project's name: `owner/repo` from its remote, else its directory's.
