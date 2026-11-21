@@ -1019,32 +1019,45 @@ test('off the terminal the groups flow at their own height and the pane scrolls 
 })
 
 test('a card says when it was noted, newest first in its group', async ($, on) => {
-  const seen = engine(on)
+  const hour = 60 * 60_000
+  // Noted before the session, and the clock set before it starts: hours advanced in a session
+  // run its timers thousands of times, which took seconds.
+  const seen = engine(on, {
+    'issues:/proj/a': {
+      nextId: 3,
+      items: [
+        { id: 1, title: 'Oldest', createdAt: 1_000 },
+        { id: 2, title: 'Older', createdAt: 1_000 + 24 * hour },
+      ],
+    },
+  })
+  await seen.clock.set(1_000 + 26 * hour)
   await $.session.start(start('/proj/a'))
-  await $.tool.call({ tool: NOTE, title: 'Older' })
-  await seen.clock.advance(2 * 60 * 60_000)
   await $.tool.call({ tool: NOTE, title: 'Newer' })
 
   const ages = async () => {
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-    // The ages as drawn, the newer card's first.
-    const [newer, older] = (await ui.findAll({ type: 'Text' }))
+    // The ages as drawn, the newest card's first.
+    const [newer, older, oldest] = (await ui.findAll({ type: 'Text' }))
       .map(el => el.text.trim())
       .filter(text => /^(just now|\d+[mh] ago|\d\d\.\d\d.* \d\d:\d\d)$/.test(text))
-    const drawn = { order: (await lines(ui)).slice(1), older, newer }
+    const drawn = { order: (await lines(ui)).slice(1), oldest, older, newer }
     await ui.unmount()
     return drawn
   }
 
-  expect(await ages()).toEqual({ order: ['#2 Newer', '#1 Older'], older: '2h ago', newer: 'just now' })
+  // After a day, the date and time it was noted.
+  const noted = new Date(1_000)
+  const two = (n: number) => String(n).padStart(2, '0')
+  expect(await ages()).toEqual({
+    order: ['#3 Newer', '#2 Older', '#1 Oldest'],
+    oldest: `${two(noted.getDate())}.${two(noted.getMonth() + 1)} ${two(noted.getHours())}:${two(noted.getMinutes())}`,
+    older: '2h ago',
+    newer: 'just now',
+  })
   // Told again as the minutes pass.
   await seen.clock.advance(5 * 60_000)
   expect((await ages()).newer).toBe('5m ago')
-  // After a day, the date and time it was noted.
-  for (let hour = 0; hour < 24; hour += 1) await seen.clock.advance(60 * 60_000)
-  const noted = new Date(1_000)
-  const two = (n: number) => String(n).padStart(2, '0')
-  expect((await ages()).older).toBe(`${two(noted.getDate())}.${two(noted.getMonth() + 1)} ${two(noted.getHours())}:${two(noted.getMinutes())}`)
 })
 
 test('the red ✕ in a card\'s corner asks once before it deletes', async ($, on) => {
