@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.25.0](https://github.com/DOstapovets/noticely/compare/v0.24.0...v0.25.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* /notifly is now /noticely, the plugin installs as noticely, and the tools are mcp__noticely__note_issue, mcp__noticely__resolve_issue and mcp__noticely__save_issue_rule.
+* the code is no longer MIT; copying, modifying or redistributing it needs written permission.
+* the plugin installs as notifly (`/plugin install notifly --marketplace DOstapovets/claude-noticed-issues`), the marketplace is named notifly, and the tools are mcp__notifly__note_issue, mcp__notifly__resolve_issue and mcp__notifly__save_issue_rule.
+* /issues, /issues clear, /issues setup and /issues feedback are now /notifly, /notifly clear, /notifly setup and /notifly feedback.
+
+### Features
+
+* ⚙ Settings beside Feedback, where the Code tab is switched on as experimental ([9c3b021](https://github.com/DOstapovets/noticely/commit/9c3b021ac6817377144fa0e35560047dbeaaa9e5))
+* a card's ⎘ Copy puts the issue on the clipboard to paste into a prompt ([f93431a](https://github.com/DOstapovets/noticely/commit/f93431aa2a165b25519196afbd61bd6d41e2824f))
+* note_issue names near duplicates and adds to one with duplicateOf ([5898b60](https://github.com/DOstapovets/noticely/commit/5898b6016cb0db0b71b445ee48e9f25ff5223c78))
+* the plugin id is notifly, and its lists come over from noticed-issues ([27bf787](https://github.com/DOstapovets/noticely/commit/27bf7878baa885d1b2dae7fe793a77566f8f0654))
+* the plugin is called Noticely, not Notifly ([41d09e6](https://github.com/DOstapovets/noticely/commit/41d09e6e502868634f204eedce6e27afdc7ecf1a))
+* the plugin is called Notifly, and /notifly replaces /issues ([512d617](https://github.com/DOstapovets/noticely/commit/512d617a75073851cf7bfefdac491604727d4a49))
+* the projects on the Projects tab stand a blank row apart ([2609195](https://github.com/DOstapovets/noticely/commit/2609195ca09e0ff28cf5f7d434ae4f7251c84713))
+
+
+### Bug Fixes
+
+* ▶ starts no second session for an issue that already has one ([9ef0ec2](https://github.com/DOstapovets/noticely/commit/9ef0ec25e590e05f14dc71b9ea6d72840a83447c))
+* a project with no issues left is dim in the Projects list, its name too ([6fa41dd](https://github.com/DOstapovets/noticely/commit/6fa41dd656f87521d478a30100a8a0f18a51aeaf))
+* folding the old per-worktree lists keeps the remote and skips damaged entries ([35fcf3b](https://github.com/DOstapovets/noticely/commit/35fcf3bb98a9c2fceceee86a8ac64dec41d5ed6b))
+* issues noted at the same moment each get a number of their own, and none is lost ([3e35547](https://github.com/DOstapovets/noticely/commit/3e35547cda0bf90a098fd15de4f0bfd00cd99150))
+* on the list of projects the footer stays at the pane's bottom edge ([280aa74](https://github.com/DOstapovets/noticely/commit/280aa74b96f078d3c3fc73f373dc768d1c7677e4))
+* the tool hooks match the tools under their new id, mcp__noticely__* ([c118399](https://github.com/DOstapovets/noticely/commit/c1183995fea2ff029d27f2e3a609749e3a36b63c))
+
+
+### Miscellaneous Chores
+
+* Notifly is proprietary: free to install and use, all other rights reserved ([25b2bfb](https://github.com/DOstapovets/noticely/commit/25b2bfbf984b94d557b04cd1d63405c98252e8b8))
+
 ## [0.24.0](https://github.com/DOstapovets/claude-noticed-issues/compare/v0.23.0...v0.24.0) (2026-11-07)
 
 
