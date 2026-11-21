@@ -25,8 +25,9 @@ claude plugin test .
 
 Both must pass. Keep the change focused, add or update a test in
 `hooks/register.test.tsx` for what it changes, and update the README where behaviour
-changes. By contributing you agree that your contribution is licensed under the
-[MIT License](./LICENSE).
+changes. By contributing you assign the copyright of your contribution to
+Dmytro Ostapovets, who owns the project ([LICENSE](./LICENSE)), and confirm that it
+is yours to assign.
 
 Branch names, commit messages, versioning and what a pull request should say are in
 [docs/git_and_pr_conventions.md](./docs/git_and_pr_conventions.md). The PR template

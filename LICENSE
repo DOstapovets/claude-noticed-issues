@@ -1,21 +1,36 @@
-MIT License
+Notifly
+Copyright (c) 2026 Dmytro Ostapovets. All rights reserved.
 
-Copyright (c) 2026 Dmytro Ostapovets
+This software, its source code, documentation and images (the "Software") are
+the property of Dmytro Ostapovets. They are published on GitHub to be read and
+installed, under the following terms and no others.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+You may:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+- install the Software as a Claude Code plugin, through Claude Code's plugin
+  commands or from a clone of this repository, and use it on any number of
+  your own machines, for any purpose, personal or commercial.
+
+You may not, without prior written permission from the copyright holder:
+
+- copy, modify, merge, translate or make derivative works of the Software,
+  beyond the copies Claude Code makes when it installs or updates it;
+- publish, distribute, sublicense, sell or rent the Software or any part of
+  it, including as part of another plugin, marketplace or product;
+- remove or change this notice.
+
+A fork made on GitHub under GitHub's Terms of Service grants no right beyond
+these.
+
+Contributions (pull requests, patches, suggested code) are accepted only on the
+terms in CONTRIBUTING.md, which assign their copyright to the copyright holder.
+
+Versions published before 21 November 2026 under the MIT License stay under
+that license for those who received them.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
