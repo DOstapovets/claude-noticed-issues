@@ -92,6 +92,9 @@ export type Project = {
   items: Issue[]
 }
 
+/** `Settings` under another name: inside `declare module 'claude-code'` the name is claude-code's own `Settings`, settings.json's. */
+export type NoticelySettings = Settings
+
 declare module 'claude-code' {
   interface PluginState {
     'noticely': {
@@ -104,7 +107,7 @@ declare module 'claude-code' {
       /** The pane's tab: every issue, only those this session noted, the resolved ones, the comments in the code, the other projects, or the settings. */
       tab: Tab
       /** The settings, mirrored from `$.store` (`settings`). */
-      settings: Settings
+      settings: NoticelySettings
       /** The TODO, FIXME, HACK and XXX comments in this working tree, as the last `git grep` found them. */
       todos: Todo[]
       /** Every other project with a list in `$.store`, those with issues first. */
