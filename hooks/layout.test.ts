@@ -35,18 +35,18 @@ test('text wraps word by word, a word wider than a row broken', () => {
 })
 
 test("a card's rows: heading, file, detail cut to three lines, links, border and controls", () => {
-  // `#1 Short`, then the border's two rows, the controls' row and a blank row.
-  expect(cardRows(issue(), 40, false, NOW)).toBe(5)
+  // `#1 Short`, then the border's two rows, a blank row, the controls' row and a blank row.
+  expect(cardRows(issue(), 40, false, NOW)).toBe(6)
   // A blank row between the heading and the file or detail.
-  expect(cardRows(issue({ file: 'src/a.ts' }), 40, false, NOW)).toBe(7)
-  expect(cardRows(issue({ detail: 'one line' }), 40, false, NOW)).toBe(7)
-  expect(cardRows(issue({ file: 'src/a.ts', detail: 'one line' }), 40, false, NOW)).toBe(8)
+  expect(cardRows(issue({ file: 'src/a.ts' }), 40, false, NOW)).toBe(8)
+  expect(cardRows(issue({ detail: 'one line' }), 40, false, NOW)).toBe(8)
+  expect(cardRows(issue({ file: 'src/a.ts', detail: 'one line' }), 40, false, NOW)).toBe(9)
   // Five hundred characters of detail are drawn cut to 3 × 40 characters.
   expect(DETAIL_LINES).toBe(3)
-  expect(cardRows(issue({ detail: 'word '.repeat(100) }), 40, false, NOW)).toBe(6 + DETAIL_LINES)
+  expect(cardRows(issue({ detail: 'word '.repeat(100) }), 40, false, NOW)).toBe(7 + DETAIL_LINES)
   // Words that wrap badly still take three lines: 21 characters leave 19 of each row empty.
-  expect(cardRows(issue({ detail: `${'x'.repeat(21)} `.repeat(20) }), 40, false, NOW)).toBe(6 + DETAIL_LINES)
-  // The links' line, with a blank row above it and one before the controls.
+  expect(cardRows(issue({ detail: `${'x'.repeat(21)} `.repeat(20) }), 40, false, NOW)).toBe(7 + DETAIL_LINES)
+  // The links' line, with a blank row above it, and the controls' own blank row below.
   const githubUrl = 'https://github.com/o/r/issues/42'
   const pull = { number: 12, url: 'https://github.com/o/r/pull/12', state: 'OPEN' } as const
   expect(cardRows(issue({ githubUrl }), 40, false, NOW)).toBe(8)
@@ -54,20 +54,20 @@ test("a card's rows: heading, file, detail cut to three lines, links, border and
   // `↗ Issue #42 (open)`, three columns and `⎇ PR #12 (open)` take 36: one line at 40, a line each at 30.
   expect(cardRows(issue({ githubUrl, github: { state: 'OPEN' }, pull }), 40, false, NOW)).toBe(8)
   expect(cardRows(issue({ githubUrl, github: { state: 'OPEN' }, pull }), 30, false, NOW)).toBe(9)
-  // A read-only card has no controls, so no blank row below the links.
+  // A read-only card has no controls, so no blank row above them.
   expect(cardRows(issue({ githubUrl }), 40, false, NOW, 'readOnly')).toBe(6)
 })
 
 test('the corner beside the heading takes its width from the age, or from the delete prompt', () => {
   // 40 columns less `just now  ✕ ` and a column leave 27: `#1` and 24 characters fit.
   const title = 'x'.repeat(24)
-  expect(cardRows(issue({ title }), 40, false, NOW)).toBe(5)
+  expect(cardRows(issue({ title }), 40, false, NOW)).toBe(6)
   // `Delete? ✓  ↩ ` and its margin take 14, so the same title wraps.
-  expect(cardRows(issue({ title }), 40, true, NOW)).toBe(6)
+  expect(cardRows(issue({ title }), 40, true, NOW)).toBe(7)
   // `5m ago` is shorter than `just now`: two more columns.
   const longer = 'x'.repeat(26)
-  expect(cardRows(issue({ title: longer }), 40, false, NOW)).toBe(6)
-  expect(cardRows(issue({ title: longer, createdAt: NOW - 5 * MINUTE }), 40, false, NOW)).toBe(5)
+  expect(cardRows(issue({ title: longer }), 40, false, NOW)).toBe(7)
+  expect(cardRows(issue({ title: longer, createdAt: NOW - 5 * MINUTE }), 40, false, NOW)).toBe(6)
 })
 
 test('age: how long ago within a day, then the date, the year when it is not this one', () => {
@@ -150,7 +150,7 @@ test('a read-only card has no row of controls and only its age in the corner', (
   // `#1 ` and 26 characters. At 40 columns the corner `just now  ✕ ` leaves 27 for
   // the heading, which wraps it; `just now` alone leaves 31, which hold it.
   const long = issue({ title: 'abcdefghij abcdefghij abcd' })
-  expect(cardRows(long, 40, false, NOW)).toBe(2 + 4)
+  expect(cardRows(long, 40, false, NOW)).toBe(2 + 5)
   expect(cardRows(long, 40, false, NOW, 'readOnly')).toBe(1 + 3)
   // A comment's card has no corner and no number: 36 characters fit in its 40.
   const comment = issue({ title: 'abcdefghij abcdefghij abcdefghij abcd', file: 'a.ts:1' })

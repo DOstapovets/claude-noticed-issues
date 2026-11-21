@@ -266,7 +266,7 @@ export async function renderPane($: Api, e: PaneRender) {
       )}
       {/* The GitHub issue and its pull request on one line, a line each where both do not fit. */}
       {(issue.githubUrl || issue.pull) && (
-        <Box key={`links-${issue.id}`} marginTop={1} marginBottom={readOnly ? 0 : 1} flexWrap="wrap" columnGap={LINK_GAP}>
+        <Box key={`links-${issue.id}`} marginTop={1} flexWrap="wrap" columnGap={LINK_GAP}>
           {issue.githubUrl && (
             <Box flexShrink={0}>
               <Link href={issue.githubUrl} label={issueLink(issue.githubUrl).label} />
@@ -290,7 +290,7 @@ export async function renderPane($: Api, e: PaneRender) {
         </Box>
       )}
       {!readOnly && (
-        <Box justifyContent="space-between">
+        <Box justifyContent="space-between" marginTop={1}>
           <Box gap={2}>
             {issue.sessionId ? (
               <Text color="cyan">▶ {issue.sessionId}</Text>

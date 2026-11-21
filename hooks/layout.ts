@@ -183,13 +183,13 @@ export const cardRows = (issue: Issue, columns: number, isConfirming: boolean, n
   const title = kind === 'code' ? wrappedRows(issue.title, head) : wrappedRows(`#${issue.id} ${issue.title}`, head)
   const detail = issue.detail ? wrappedRows(clipRows(issue.detail, columns, DETAIL_LINES), columns) : 0
   const hasControls = kind !== 'readOnly' && kind !== 'done'
-  // A blank row between the heading and the file or detail (not on a comment's card); the links have one
-  // above and, before the controls, one below.
+  // A blank row between the heading and the file or detail (not on a comment's card), one above the
+  // links and one above an issue's controls.
   const below = (issue.file || issue.detail ? (kind === 'code' ? 0 : 1) : 0) + (issue.file ? 1 : 0) + detail
   const links = linkRows(issue, columns)
 
   // With the border's two rows, the controls' row and the blank row below the card.
-  return title + below + (links > 0 ? links + (hasControls ? 2 : 1) : 0) + (hasControls ? 4 : 3)
+  return title + below + (links > 0 ? links + 1 : 0) + (kind === 'own' ? 1 : 0) + (hasControls ? 4 : 3)
 }
 
 // A project's name: `owner/repo` from its remote, else its directory's.

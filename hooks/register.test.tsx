@@ -825,10 +825,10 @@ test('a priority group folds in its place, and stays folded', async ($, on) => {
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   await ui.press({ key: 'group-high' })
   expect(await lines(ui)).toEqual(['▸ High 1', '▾ Medium 1', '#2 Stale doc', '▾ Low 1', '#3 Typo in footer'])
-  // An open group takes what its cards need, its heading and a card of five rows;
+  // An open group takes what its cards need, its heading and a card of six rows;
   // a folded one only its heading.
-  expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(6)
-  expect((await ui.find({ key: 'priority-low' }))?.props.height).toBe(6)
+  expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(7)
+  expect((await ui.find({ key: 'priority-low' }))?.props.height).toBe(7)
   expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(1)
   await ui.press({ key: 'group-medium' })
   expect(await lines(ui)).toEqual(['▸ High 1', '▸ Medium 1', '▾ Low 1', '#3 Typo in footer'])
@@ -1018,11 +1018,11 @@ test('each open group scrolls its cards under a heading that stays put', async (
 
   // The pane never outgrows its 40 rows, so the engine has nothing to scroll. Between
   // the heading and the tabs above and the footer below, 34 rows, one of them blank
-  // between the groups: Medium needs 11 and gets them, High the other 22.
+  // between the groups: Medium needs 13 and gets them, High the other 20.
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(11)
+  expect((await ui.find({ key: 'priority-medium' }))?.props.height).toBe(13)
   expect((await ui.find({ key: 'priority-medium' }))?.props.marginTop).toBe(1)
-  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(22)
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(20)
   expect((await ui.find({ key: 'priority-high' }))?.props.marginTop).toBe(0)
   const scroll = (by: number, row?: number) =>
     $.ui.scroll({
@@ -1037,16 +1037,16 @@ test('each open group scrolls its cards under a heading that stays put', async (
     } as never)
   const high = async () => (await lines(ui)).filter(line => line.startsWith('#') && line.includes('Leak'))
 
-  // Rows 4 to 25 are High's, 27 to 37 Medium's; a tick moves one card.
+  // Rows 4 to 23 are High's, 25 to 37 Medium's; a tick moves one card.
   expect((await high())[0]).toBe('#8 Leak 8')
   await scroll(1, 10)
   expect((await high())[0]).toBe('#7 Leak 7')
   expect(await ui.find({ type: 'Text', text: / ↑ 1 above/ })).toBeDefined()
   await scroll(3, 10)
   expect((await high())[0]).toBe('#6 Leak 6')
-  // No further than the view that shows the last card: 4 cards of 5 rows fit in 21.
+  // No further than the view that shows the last card: 3 cards of 6 rows fit in 19.
   for (let i = 0; i < 6; i += 1) await scroll(1, 10)
-  expect((await high())[0]).toBe('#4 Leak 4')
+  expect((await high())[0]).toBe('#3 Leak 3')
   // Medium shows all its cards, so it does not scroll.
   await scroll(1, 35)
   expect((await lines(ui)).slice(-3)).toEqual(['▾ Medium 2', '#10 Doc 2', '#9 Doc 1'])
@@ -1139,7 +1139,7 @@ test('off the terminal the groups flow at their own height and the pane scrolls 
 
   // Back on the terminal the groups keep their rows and scroll inside them.
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(22)
+  expect((await ui.find({ key: 'priority-high' }))?.props.height).toBe(20)
   expect((await ui.find({ key: 'issue-1' }))?.props.paddingY).toBeUndefined()
   const before = passed
   await scroll()

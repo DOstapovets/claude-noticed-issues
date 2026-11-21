@@ -75,7 +75,7 @@ An entry deleted with ✕ does not go there. Within a group the newest entry com
 title in bold on one line, wrapped when long, and, at the top right, when it was noted: `just now`, `5m ago`, `3h ago`,
 then after a day the date and time, `06.11 14:05`. A blank row below the title, dimmed, come the
 file on one line (shortened in the middle when it does not fit) and the detail cut to
-three lines. These are its controls:
+three lines. A blank row above them, these are its controls:
 
 - **▶ New session** starts `claude --bg` with a prompt to fix the issue that ends by
   asking it to call `resolve_issue`. The card then shows the session id, which
@@ -83,7 +83,7 @@ three lines. These are its controls:
   see [GitHub status](#github-status).
 - **↗ GitHub issue** files it with `gh issue create` in the repository of the session's
   directory: the title becomes the issue title, `detail` and `file` its body. The card
-  then links it on a line under the detail, with a blank row above and below:
+  then links it on a line under the detail, with a blank row above:
   `↗ Issue #42 (open · 📋 To do)`, with the column of the project board it is on, if any.
   Shown only where GitHub is on: see [Settings](#settings).
 - **⎘ Copy** puts the entry on the clipboard to paste into a prompt: `#3` and the
