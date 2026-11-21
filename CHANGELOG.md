@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.27.0](https://github.com/DOstapovets/noticely/compare/v0.26.0...v0.27.0) (2026-11-21)
+
+
+### Features
+
+* a card keeps its number beside the title and shows its GitHub links under the detail ([ffd594a](https://github.com/DOstapovets/noticely/commit/ffd594ad1602e4fb203f001d3df55732ae181c03))
+* the answer of note_issue and resolve_issue is green or yellow under its row ([8838a56](https://github.com/DOstapovets/noticely/commit/8838a56ec8d288cc5de819160109344ba4f6e16d))
+
+
+### Bug Fixes
+
+* the blank row before a card's controls sits above them, not under the GitHub links ([56b68b3](https://github.com/DOstapovets/noticely/commit/56b68b351b155c1285a595b08782e19ee2ee4e14))
+
 ## [0.26.0](https://github.com/DOstapovets/noticely/compare/v0.25.0...v0.26.0) (2026-11-21)
 
 
