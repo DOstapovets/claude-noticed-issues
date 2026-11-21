@@ -1,32 +1,32 @@
-<p align="center"><img src="docs/assets/hero.png" alt="Notifly: Claude saw a bug next door. Now it won't get lost." width="100%"></p>
+<p align="center"><img src="docs/assets/hero.png" alt="Noticely: Claude saw a bug next door. Now it won't get lost." width="100%"></p>
 
-# Notifly
+# Noticely
 
-Notifly is a Claude Code plugin that keeps a per-project list of problems Claude noticed
+Noticely is a Claude Code plugin that keeps a per-project list of problems Claude noticed
 **outside the current task** and is not fixing right now: a bug next door, a leaked
 secret, broken config, a failing check, stale docs. Instead of getting lost in the
 conversation, each finding goes on a list that survives across sessions, grouped by
 priority. From any entry you can start a background session to fix it, or file a
 GitHub issue and follow its status.
 
-<p align="center"><img src="docs/assets/demo.gif" alt="Claude notes a leaked webhook secret while upgrading stripe; /notifly opens the pane, ▶ New session fixes it in the background, and the entry leaves the list once resolved." width="100%"></p>
+<p align="center"><img src="docs/assets/demo.gif" alt="Claude notes a leaked webhook secret while upgrading stripe; /noticely opens the pane, ▶ New session fixes it in the background, and the entry leaves the list once resolved." width="100%"></p>
 
 ## Install
 
 At the prompt of a Claude Code terminal session:
 
 ```sh
-/plugin install notifly --marketplace DOstapovets/notifly
+/plugin install noticely --marketplace DOstapovets/noticely
 ```
 
 From a shell:
 
 ```sh
-claude plugin install notifly --marketplace DOstapovets/notifly
+claude plugin install noticely --marketplace DOstapovets/noticely
 ```
 
 In the desktop app, where `/plugin` does not run: click **+** next to the prompt box,
-then **Plugins**, **Add marketplace** with `DOstapovets/notifly`, then **Add plugin**.
+then **Plugins**, **Add marketplace** with `DOstapovets/noticely`, then **Add plugin**.
 
 Then tell Claude to use it. The first session in each repository offers to work out
 a rule for that repository (see [Repository rule](#repository-rule)). For every
@@ -53,8 +53,8 @@ Call `resolve_issue` once such an issue is fixed.
 current session has noted something it says how many, `⚑ 3 issues · 1 this session`. It is
 hidden while the list is empty, and any band another plugin draws there stays below it.
 
-**The "Notifly" pane** opens by itself when the list has something on it, and
-with `/notifly`. Entries are grouped under **▾ High**, **▾ Medium** and **▾ Low**. Press
+**The "Noticely" pane** opens by itself when the list has something on it, and
+with `/noticely`. Entries are grouped under **▾ High**, **▾ Medium** and **▾ Low**. Press
 a group's heading to fold it (`▸ High 2`) or open it again; a folded group keeps its
 place, so High stays on top. An open group takes the rows its cards need. When
 they do not all fit, a group that needs no more than an even share keeps what it needs and
@@ -95,7 +95,7 @@ which pushes it down only once the list is longer than the pane.
 
 **Other projects.** Once another project has a list too, a **Projects** tab stands in
 the footer, in a secondary color, also when this project's list is
-empty (open the pane with `/notifly`). It
+empty (open the pane with `/noticely`). It
 lists this project first, in the accent color and marked `this project` (pressing it
 leads back to its own list), then every other project the plugin has kept a list for, one row each, a blank row apart: its name
 (`owner/repo` from its `origin` remote, else its directory's name), its directory, how many entries
@@ -103,7 +103,7 @@ it has in each priority, in the groups' colors (`● 2 ● 1`), and when its lis
 changed. Projects with no entries left come last, dimmed, as `no issues`. Press a
 project to see its entries in the same groups and cards, read only: no **▶**, **↗**,
 **✕** or **▲ / ▼**; open a session in that project to act on them. **← Projects**
-leads back to the list. The list is read again each time the tab is pressed, on `/notifly`, and, while the tab is open,
+leads back to the list. The list is read again each time the tab is pressed, on `/noticely`, and, while the tab is open,
 every 30 seconds.
 
 **Settings.** **⚙ Settings**, in the footer's secondary color, shows the settings in
@@ -119,7 +119,7 @@ like `TODO_LIST`, or Markdown's `**TODO**`, does not; nor does an opening inside
 quotes, such as a test's fixture `'a.ts:1:// TODO: x'`. The text ends where the comment
 closes (`*/`, `-->`), and a tag followed only by punctuation is named after the tag and its
 place, `TODO in a.ts:4`. They are found with `git grep` when the setting is switched on, at session start, when the tab is pressed, on
-`/notifly` and, while the tab is open, every 30 seconds; they are not stored, so a comment
+`/noticely` and, while the tab is open, every 30 seconds; they are not stored, so a comment
 taken out of the code leaves the tab. The groups are headed by tags: **FIXME**, **HACK ·
 XXX**, **TODO**. Each card shows the comment's text and `path:line`, with two controls:
 **→ List** notes it as an entry at its group's priority, whose detail asks to remove the
@@ -142,11 +142,11 @@ with the counts beside it, its directory on a line below.
 
 **Commands:**
 
-- `/notifly` opens the pane (or prints the list, highest priority first, when no pane
+- `/noticely` opens the pane (or prints the list, highest priority first, when no pane
   can be placed right now) and refreshes GitHub statuses.
-- `/notifly clear` empties the project's list.
-- `/notifly setup` starts the analysis that writes the [repository rule](#repository-rule), again whenever you want it redone.
-- `/notifly feedback` does what the pane's **✎ Feedback** button does, below.
+- `/noticely clear` empties the project's list.
+- `/noticely setup` starts the analysis that writes the [repository rule](#repository-rule), again whenever you want it redone.
+- `/noticely feedback` does what the pane's **✎ Feedback** button does, below.
 
 **✎ Feedback**, in the pane's footer, is for reporting something about this plugin
 itself. It starts a background session (`claude attach <id>` joins it, as the toast
@@ -167,7 +167,7 @@ repository, its docs, checks, config and what is already on the list, and drafts
 short rule: what counts as a problem outside the task here, with examples from this
 stack and these paths, how to pick a priority, and what not to note. It shows you
 the draft, asks whether to note the problems it found on the way, and saves the rule
-once you confirm. **Not now** asks no more; `/notifly setup` starts it later, or
+once you confirm. **Not now** asks no more; `/noticely setup` starts it later, or
 redoes the rule.
 
 The rule is kept in the plugin's store, under `rule:` beside the repository's list,
@@ -178,7 +178,7 @@ repository started after it was saved, its worktrees included.
 
 The status of each linked issue is read with
 `gh issue view <url> --json state,projectItems`: at session start, right after the
-issue is filed, on `/notifly`, and every 5 minutes after that. Entries without a link
+issue is filed, on `/noticely`, and every 5 minutes after that. Entries without a link
 cost nothing. When `gh` does not answer, the last known status stays.
 
 When the GitHub issue is **closed**, as completed or as not planned, the entry is
@@ -210,8 +210,9 @@ working tree. Every worktree of a repository sees the same list; a separate repo
 nested inside it has its own. Outside a repository, the session's directory is the key.
 Lists that versions before 0.4 kept per worktree are folded into the repository's list
 on first start, keeping its remote; an entry there with no title or number is left out.
-Up to 0.24 the plugin was called `noticed-issues`; the lists kept under that name are
-copied over on the first start of Notifly, and the old store file is left as it is.
+Up to 0.24 the plugin was called `noticed-issues`, and for a short while on `main`
+`notifly`; the lists kept under those names are copied over on the first start of
+Noticely, and the old store files are left as they are.
 
 Each list also keeps the repository's `origin` remote and when it last changed,
 written with every change from 0.22 on, so the Projects tab of another project can
@@ -236,7 +237,7 @@ claude --plugin-dir .         # a session with this checkout loaded
 
 | File | What is in it |
 | --- | --- |
-| `hooks/register.tsx` | The hooks module: tools, `/notifly`, the count, and the files it imports for the store, GitHub, background sessions, layout and the pane (listed in [AGENTS.md](./AGENTS.md#layout)). |
+| `hooks/register.tsx` | The hooks module: tools, `/noticely`, the count, and the files it imports for the store, GitHub, background sessions, layout and the pane (listed in [AGENTS.md](./AGENTS.md#layout)). |
 | `hooks/*.test.ts(x)` | Tests on `claude-code/testing`, with `gh`, `git` and `claude --bg` stubbed. |
 | `types/index.d.ts` | The `Issue`, `Priority`, `GithubStatus`, `Stored`, `Rule`, `Project` and `Settings` types and the `$.state` contract. |
 
@@ -246,9 +247,9 @@ commit, version and PR conventions in [docs/git_and_pr_conventions.md](./docs/gi
 ## Feedback
 
 Found a bug or want something changed? Press **✎ Feedback** in the pane, or
-[open an issue](https://github.com/DOstapovets/notifly/issues/new/choose)
+[open an issue](https://github.com/DOstapovets/noticely/issues/new/choose)
 with the **Bug report** or **Feature request** form. Questions go to
-[Discussions](https://github.com/DOstapovets/notifly/discussions), security
+[Discussions](https://github.com/DOstapovets/noticely/discussions), security
 problems to the private report described in [SECURITY.md](./SECURITY.md). Pull requests:
 see [CONTRIBUTING.md](./CONTRIBUTING.md).
 

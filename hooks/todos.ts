@@ -9,8 +9,8 @@ import { addIssue, SETTINGS_KEY } from './store'
 
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads or writes it, so this module names the atoms itself; types/index.d.ts declares them once.
-const todos = atom({ plugin: 'notifly', key: 'todos' } as const, [])
-const settings = atom({ plugin: 'notifly', key: 'settings' } as const, {})
+const todos = atom({ plugin: 'noticely', key: 'todos' } as const, [])
+const settings = atom({ plugin: 'noticely', key: 'settings' } as const, {})
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.

@@ -29,7 +29,7 @@ Conventions: docs/git_and_pr_conventions.md
 
 <!-- Stored data: can the new code read issues stored by the version before?
      Anything that renames a tool, a parameter, a userConfig option or an
-     /notifly argument is a breaking change.
+     /noticely argument is a breaking change.
      Conflicts with other open PRs, by number. -->
 
 ---

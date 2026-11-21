@@ -11,8 +11,8 @@ import { offerSetup, startFeedback, startSetup, whereRun } from './sessions'
 import { addIssue, adoptOldStore, change, COLLAPSED_KEY, load, loadProjects, migrate, SETTINGS_KEY } from './store'
 import { scanTodos } from './todos'
 
-const PANE = 'notifly'
-const TITLE = 'Notifly'
+const PANE = 'noticely'
+const TITLE = 'Noticely'
 const NOTE = 'mcp__noticed-issues__note_issue'
 const RESOLVE = 'mcp__noticed-issues__resolve_issue'
 const SAVE_RULE = 'mcp__noticed-issues__save_issue_rule'
@@ -24,17 +24,17 @@ const RELOAD_MS = 30_000
 const GITHUB_MS = 5 * 60_000
 
 // The priority groups folded in the pane, the same in every project.
-const collapsed = atom({ plugin: 'notifly', key: 'collapsed' } as const, [])
+const collapsed = atom({ plugin: 'noticely', key: 'collapsed' } as const, [])
 // The settings, the same in every project.
-const settings = atom({ plugin: 'notifly', key: 'settings' } as const, {})
+const settings = atom({ plugin: 'noticely', key: 'settings' } as const, {})
 // The card whose ✕ asks to confirm, for this session only.
-const deleting = atom({ plugin: 'notifly', key: 'deleting' } as const, null)
+const deleting = atom({ plugin: 'noticely', key: 'deleting' } as const, null)
 // The pane's tab, for this session only.
-const tab = atom({ plugin: 'notifly', key: 'tab' } as const, 'all')
+const tab = atom({ plugin: 'noticely', key: 'tab' } as const, 'all')
 // Where each open group is scrolled to, for this session only.
-const scrolled = atom({ plugin: 'notifly', key: 'scrolled' } as const, {})
+const scrolled = atom({ plugin: 'noticely', key: 'scrolled' } as const, {})
 // The time the cards' ages are told from, moved on once a minute: the pane redraws then, not on every tick.
-const minute = atom({ plugin: 'notifly', key: 'minute' } as const, 0)
+const minute = atom({ plugin: 'noticely', key: 'minute' } as const, 0)
 const AGE_MS = 10_000
 
 const openPane = ($: Api) => $.ui.open({ id: PANE, title: TITLE })
@@ -74,7 +74,7 @@ export const register: Register = (on, options) => {
       description:
         'Record a problem you noticed that is NOT part of the current task and that you are not fixing now ' +
         '(a bug, a leaked secret, broken config, a failing check, stale docs). It goes on the user\'s ' +
-        'per-project Notifly list, kept across sessions. Mention it in one line in your reply too. ' +
+        'per-project Noticely list, kept across sessions. Mention it in one line in your reply too. ' +
         'Do not use it for steps of the current task: those belong in the task list.',
       inputSchema: {
         type: 'object',
@@ -94,7 +94,7 @@ export const register: Register = (on, options) => {
     })
     await $.tool.register({
       name: 'resolve_issue',
-      description: 'Remove an issue from the Notifly list once it has been fixed or is no longer relevant.',
+      description: 'Remove an issue from the Noticely list once it has been fixed or is no longer relevant.',
       inputSchema: {
         type: 'object',
         properties: { id: { type: 'number', description: 'The issue number, as note_issue returned it' } },
@@ -105,7 +105,7 @@ export const register: Register = (on, options) => {
     await $.tool.register({
       name: 'save_issue_rule',
       description:
-        'Save when to note an issue in this repository, as the Notifly setup worked it out with the user. ' +
+        'Save when to note an issue in this repository, as the Noticely setup worked it out with the user. ' +
         'It goes into the context of every later session in the repository and replaces the rule saved before.',
       inputSchema: {
         type: 'object',
@@ -114,9 +114,9 @@ export const register: Register = (on, options) => {
       },
     })
     await $.command.register({
-      name: 'notifly',
+      name: 'noticely',
       description:
-        "Show this project's Notifly list; `/notifly clear` empties the list, `/notifly setup` analyzes the repository to write when to note an issue here, `/notifly feedback` reports a bug or an idea about this plugin",
+        "Show this project's Noticely list; `/noticely clear` empties the list, `/noticely setup` analyzes the repository to write when to note an issue here, `/noticely feedback` reports a bug or an idea about this plugin",
       argumentHint: '[clear|setup|feedback]',
     })
 
@@ -128,7 +128,7 @@ export const register: Register = (on, options) => {
     await tick()
     $.clock.every(AGE_MS, () => void tick())
     // The other projects, and the comments in the code, are read again only while their tab is open:
-    // pressing it, and `/notifly`, read them too.
+    // pressing it, and `/noticely`, read them too.
     $.clock.every(RELOAD_MS, async () => {
       await load($)
       const open = await read($, tab)
@@ -189,7 +189,7 @@ export const register: Register = (on, options) => {
     void openPane($)
 
     const note = cut.length > 0 ? ` (${cut.join(', ')})` : ''
-    return { result: `Noted as #${issue.id}${note}; the user sees it under /notifly.` }
+    return { result: `Noted as #${issue.id}${note}; the user sees it under /noticely.` }
   })
 
   on('tool.call', { tool: RESOLVE }, async ($, e) => {
@@ -237,12 +237,12 @@ export const register: Register = (on, options) => {
       ...ran,
       blocks: [
         ...ran.blocks,
-        { name: 'notiflyRule', text: `When to note an issue in this repository (Notifly):\n${session.rule}` },
+        { name: 'noticelyRule', text: `When to note an issue in this repository (Noticely):\n${session.rule}` },
       ],
     }
   })
 
-  on('command.run', { command: 'notifly' }, async ($, e) => {
+  on('command.run', { command: 'noticely' }, async ($, e) => {
     if (e.args.trim() === 'setup') {
       const sessionId = await startSetup($)
       return {
@@ -268,7 +268,7 @@ export const register: Register = (on, options) => {
 
     if (e.args.trim() === 'clear') {
       await change($, () => [])
-      return { text: 'Notifly list cleared for this project.' }
+      return { text: 'Noticely list cleared for this project.' }
     }
 
     const list = await load($)
@@ -278,13 +278,13 @@ export const register: Register = (on, options) => {
     const opened = await openPane($)
 
     if (opened.isPlaced) {
-      return { text: `Notifly: ${count(list.length)}.` }
+      return { text: `Noticely: ${count(list.length)}.` }
     }
 
     return {
       text:
         list.length === 0
-          ? 'Nothing on the Notifly list.'
+          ? 'Nothing on the Noticely list.'
           : [...list]
               .sort((a, b) => rank(a) - rank(b))
               .map(i => `[${PRIORITIES[rank(i)]!.label}] #${i.id} ${i.title}${i.file ? ` (${i.file})` : ''}`)

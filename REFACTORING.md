@@ -1,4 +1,4 @@
-# Notifly — Refactoring Plan
+# Noticely — Refactoring Plan
 
 ## Goal
 
@@ -54,10 +54,10 @@ fix comes with a test in `hooks/register.test.tsx` that fails without it. A test
 
 ### 1.1 Lost updates and reused ids
 
-Only `note_issue`, `resolve_issue` and `/notifly` read `$.store` before they write. Other
+Only `note_issue`, `resolve_issue` and `/noticely` read `$.store` before they write. Other
 writers save the session's `issues` atom, which can be up to 30 s behind the store
 (`RELOAD_MS`): `startSession`, `createGithubIssue`, `refreshGithub`, `shiftPriority`,
-`remove` and `/notifly clear`. `save` also stores the module's `nextId`, and that value
+`remove` and `/noticely clear`. `save` also stores the module's `nextId`, and that value
 may be behind too.
 
 Example: a background session notes #5. Within 30 s the user presses ▲ in the main
@@ -124,7 +124,7 @@ commit per module, and behavior does not change. The files stay in `hooks/`, bec
 
 | File | Holds |
 | --- | --- |
-| `hooks/register.tsx` | Wiring only: `session.start`, the tools, `/notifly`, the ui hooks |
+| `hooks/register.tsx` | Wiring only: `session.start`, the tools, `/noticely`, the ui hooks |
 | `hooks/context.ts` | The per-session values (`cwd`, `storeKey`, `nextId`, `github`, the pane's last surface and width) in one object, replacing module `let`s |
 | `hooks/store.ts` | `load`, `save`, `change`, `migrate`, `commonDir` |
 | `hooks/layout.ts` | Pure functions: `PRIORITIES`, `rank`, `share`, `arrange`, `firstCard`, `wrappedRows`, `cardRows`, `age`, `clip`, `headRows` |
@@ -192,7 +192,7 @@ Only the tests that Phases 1–2 do not already add:
 ## Implementation rules
 
 1. Do not rewrite the plugin from scratch.
-2. Keep the tools' names and inputs, `/notifly` and the stored shape.
+2. Keep the tools' names and inputs, `/noticely` and the stored shape.
 3. Add no runtime dependencies, no database, no backend.
 4. Run `claude plugin validate .`, `claude plugin test .` and `tsc` before every commit
    (AGENTS.md → Checks).

@@ -7,14 +7,14 @@ import type { Api } from './context'
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads or writes it, so each module names the atoms it uses; types/index.d.ts
 // declares them once.
-const issues = atom({ plugin: 'notifly', key: 'issues' } as const, [])
+const issues = atom({ plugin: 'noticely', key: 'issues' } as const, [])
 // The priority groups folded in the pane, the same in every project.
-const collapsed = atom({ plugin: 'notifly', key: 'collapsed' } as const, [])
+const collapsed = atom({ plugin: 'noticely', key: 'collapsed' } as const, [])
 export const COLLAPSED_KEY = 'collapsed'
 // The settings, the same in every project.
 export const SETTINGS_KEY = 'settings'
 // Every other project's list, for the pane's Projects tab.
-const projects = atom({ plugin: 'notifly', key: 'projects' } as const, [])
+const projects = atom({ plugin: 'noticely', key: 'projects' } as const, [])
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.
@@ -175,11 +175,12 @@ export async function migrate($: Api, root: string) {
   }
 }
 
-// Up to 0.24 the plugin was called noticed-issues, and the engine keeps a plugin's
-// `$.store` in a file named after it, so every list stayed in that file. Copy its
-// keys over once, leaving any this store already has; the old file stays as it is.
+// Up to 0.24 the plugin was called noticed-issues, and briefly after that notifly,
+// and the engine keeps a plugin's `$.store` in a file named after it, so every list
+// stayed in those files. Copy their keys over once, notifly's first as the newer,
+// leaving any this store already has; the old files stay as they are.
 export const ADOPTED_KEY = 'adoptedFrom'
-const OLD_STORE = /^noticed-issues_.*\.json$/
+const OLD_STORE = /^(notifly|noticed-issues)_.*\.json$/
 
 export async function adoptOldStore($: Api) {
   if ((await $.store.get(ADOPTED_KEY)) !== undefined) {
@@ -192,7 +193,9 @@ export async function adoptOldStore($: Api) {
   }
 
   const dir = `${ran.stdout}/plugins/store`
-  const files = (await $.fs.list(dir).catch(() => [])).filter(f => f.kind === 'file' && OLD_STORE.test(f.name))
+  const files = (await $.fs.list(dir).catch(() => []))
+    .filter(f => f.kind === 'file' && OLD_STORE.test(f.name))
+    .sort((a, b) => Number(b.name.startsWith('notifly_')) - Number(a.name.startsWith('notifly_')))
   const have = new Set(await $.store.keys())
 
   for (const file of files) {

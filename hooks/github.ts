@@ -7,7 +7,7 @@ import { change } from './store'
 
 // Named here as well as in register.tsx: the engine's scan reads a `$.state`
 // value only from a const of the file that reads it.
-const issues = atom({ plugin: 'notifly', key: 'issues' } as const, [])
+const issues = atom({ plugin: 'noticely', key: 'issues' } as const, [])
 
 const GITHUB_ISSUE = /https:\/\/\S+\/issues\/\d+/
 
@@ -54,7 +54,7 @@ export async function createGithubIssue($: Api, id: number) {
   void refreshGithub($)
 }
 
-// One pass at a time: the timer, `/notifly` and a new issue may all ask for one.
+// One pass at a time: the timer, `/noticely` and a new issue may all ask for one.
 let refreshing = false
 
 type Viewed = {

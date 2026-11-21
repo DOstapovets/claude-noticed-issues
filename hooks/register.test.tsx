@@ -10,11 +10,11 @@ const RESOLVE = 'mcp__noticed-issues__resolve_issue'
 const answer = (ran: { result?: unknown }) => String(ran.result)
 
 const PANE = {
-  plugin: 'notifly',
+  plugin: 'noticely',
   component: 'Pane',
-  requestId: 'notifly',
+  requestId: 'noticely',
   props: {
-    title: 'Notifly',
+    title: 'Noticely',
     isFocused: true,
     bodyColumns: 60,
     placement: 'dock',
@@ -24,10 +24,11 @@ const PANE = {
 } as const
 
 const BAND = {
-  plugin: 'notifly',
+  plugin: 'noticely',
   component: 'AbovePrompt',
   props: {
     hasSurvey: false,
+    isCollapsed: false,
     isWorking: false,
     maxRows: 10,
     bodyColumns: 120,
@@ -269,7 +270,7 @@ test('issues are noted, deleted, resolved and kept per project', async ($, on) =
   await back.unmount()
 
   const cleared = await $.command.run({
-    command: 'notifly',
+    command: 'noticely',
     args: 'clear',
     origin: { kind: 'composer' },
     presentation: { isFullscreen: true, columns: 160 },
@@ -331,10 +332,10 @@ test('changes made at the same moment in one session all land, each issue at a n
   await ui.unmount()
 
   expect(answers.map(answer)).toEqual([
-    'Noted as #2; the user sees it under /notifly.',
+    'Noted as #2; the user sees it under /noticely.',
     'Resolved #1.',
-    'Noted as #3; the user sees it under /notifly.',
-    'Noted as #4; the user sees it under /notifly.',
+    'Noted as #3; the user sees it under /noticely.',
+    'Noted as #4; the user sees it under /noticely.',
     'Already on the list as #3.',
   ])
   const kept = seen.store.get('issues:/proj/a')
@@ -458,11 +459,11 @@ test('the GitHub issue\'s board column is shown, and a closed one is removed', G
   expect((await lines(ui)).find(line => line.startsWith('#1 '))).toMatch(/^#1 ↗ #7 · open · 📋 To do/)
   await ui.unmount()
 
-  // Closed on GitHub, as not planned: gone on the next pass, here the one `/notifly` starts.
+  // Closed on GitHub, as not planned: gone on the next pass, here the one `/noticely` starts.
   seen.github = (url: string) =>
     url.endsWith('/7') ? { state: 'CLOSED', projectItems: [] } : { state: 'OPEN', projectItems: [] }
   await $.command.run({
-    command: 'notifly',
+    command: 'noticely',
     args: '',
     origin: { kind: 'composer' },
     presentation: { isFullscreen: true, columns: 160 },
@@ -896,7 +897,7 @@ test('each open group scrolls its cards under a heading that stays put', async (
   const scroll = (by: number, row?: number) =>
     $.ui.scroll({
       component: 'Pane',
-      requestId: 'notifly',
+      requestId: 'noticely',
       offset: 0,
       by,
       bodyRows: 40,
@@ -940,7 +941,7 @@ test('off the terminal the groups flow at their own height and the pane scrolls 
   const scroll = () =>
     $.ui.scroll({
       component: 'Pane',
-      requestId: 'notifly',
+      requestId: 'noticely',
       offset: 0,
       by: 1,
       bodyRows: 40,
@@ -973,7 +974,7 @@ test('off the terminal the groups flow at their own height and the pane scrolls 
     const dots = (await ui.findAll({ type: 'Text', text: /^●/ })).map(dot => dot.props.color)
     expect(dots).toEqual(surface === 'vscode' ? ['red', 'yellow'] : [])
     // VS Code draws the pane's title itself: there is no heading of the plugin's, Settings and Feedback, in the footer, still are.
-    expect(await ui.find({ type: 'Text', text: /^Notifly/ })).toEqual(surface === 'vscode' ? undefined : expect.anything())
+    expect(await ui.find({ type: 'Text', text: /^Noticely/ })).toEqual(surface === 'vscode' ? undefined : expect.anything())
     // VS Code draws a Button as a chip with room of its own: no spaces about the label there.
     expect((await ui.find({ key: 'footer' }))?.text).toBe(surface === 'vscode' ? '⚙ Settings✎ Feedback' : ' ⚙ Settings  ✎ Feedback ')
     // In VS Code the corner's age, ✕ and, once asked, Delete? ✓ ↩ are a character apart.
@@ -1099,7 +1100,7 @@ test('a very long note is stored cut, and the answer says so', async ($, on) => 
   const long = await $.tool.call({ tool: NOTE, title, detail: 'd'.repeat(10_000), file: 'f'.repeat(600) })
   expect(answer(long)).toBe(
     'Noted as #1 (title cut to 200 characters, detail cut to 4000 characters, file cut to 500 characters); ' +
-      'the user sees it under /notifly.',
+      'the user sees it under /noticely.',
   )
 
   // What was kept, as the fix session is told it.
@@ -1117,7 +1118,7 @@ test('a very long note is stored cut, and the answer says so', async ($, on) => 
   expect(answer(dup)).toBe('Already on the list as #1.')
 
   const short = await $.tool.call({ tool: NOTE, title: 'Short', detail: 'd'.repeat(4000) })
-  expect(answer(short)).toBe('Noted as #2; the user sees it under /notifly.')
+  expect(answer(short)).toBe('Noted as #2; the user sees it under /noticely.')
 })
 
 test('Feedback starts a session that interviews the user and posts only once they confirm', async ($, on) => {
@@ -1131,14 +1132,14 @@ test('Feedback starts a session that interviews the user and posts only once the
   expect(seen.argv).toHaveLength(1)
   expect(seen.argv[0]?.slice(0, 2)).toEqual(['claude', '--bg'])
   const text = seen.argv[0]?.[2] ?? ''
-  expect(text).toContain('DOstapovets/notifly')
+  expect(text).toContain('DOstapovets/noticely')
   expect(text).toContain('AskUserQuestion')
   expect(text).toContain('post nothing until I confirm')
   expect(text).toContain('createDiscussion')
   expect(seen.toasts.at(-1)).toContain('claude attach 4b7cb777')
 
   const ran = await $.command.run({
-    command: 'notifly',
+    command: 'noticely',
     args: 'feedback',
     origin: { kind: 'composer' },
     presentation: { isFullscreen: true, columns: 160 },
@@ -1170,7 +1171,7 @@ test('Feedback tells the session where it was started from', async ($, on) => {
   // Typed at the terminal: the run says the layout.
   seen.surfaces = ['terminal']
   await $.command.run({
-    command: 'notifly',
+    command: 'noticely',
     args: 'feedback',
     origin: { kind: 'composer' },
     presentation: { isFullscreen: false, columns: 120 },
@@ -1180,7 +1181,7 @@ test('Feedback tells the session where it was started from', async ($, on) => {
   // From the VS Code extension's prompt: the one surface the session draws on.
   seen.surfaces = ['vscode']
   await $.command.run({
-    command: 'notifly',
+    command: 'noticely',
     args: 'feedback',
     origin: { kind: 'sdk' },
     presentation: { isFullscreen: false, columns: 80 },
@@ -1190,7 +1191,7 @@ test('Feedback tells the session where it was started from', async ($, on) => {
   // Several surfaces and no telling which: the session asks.
   seen.surfaces = ['vscode', 'mobile']
   await $.command.run({
-    command: 'notifly',
+    command: 'noticely',
     args: 'feedback',
     origin: { kind: 'sdk' },
     presentation: { isFullscreen: false, columns: 80 },
@@ -1209,7 +1210,7 @@ test('both tools stay in the prompt rather than behind ToolSearch', async ($, on
       tool,
       description: 'd',
       isDeferred: true,
-      provider: { plugin: 'notifly', tier: 'user' },
+      provider: { plugin: 'noticely', tier: 'user' },
     })
     expect(described.isDeferred).toBe(false)
     expect(described.description).toBe('d')
@@ -1322,7 +1323,7 @@ test('outside a repository the list is the directory\'s', async ($, on) => {
 })
 
 const SAVE_RULE = 'mcp__noticed-issues__save_issue_rule'
-const RULE_BLOCK = 'notiflyRule'
+const RULE_BLOCK = 'noticelyRule'
 
 // The blocks the plugin adds to a conversation's context.
 const context = async ($: Engine) => (await $.prompt.context({ blocks: [] })).blocks
@@ -1356,7 +1357,7 @@ test('Not now, or a dismissed dialog, starts nothing and is not asked again', as
   await seen.clock.settle()
   expect(seen.asked).toHaveLength(1)
   expect(seen.argv).toHaveLength(0)
-  expect(seen.toasts.at(-1)).toContain('/notifly setup')
+  expect(seen.toasts.at(-1)).toContain('/noticely setup')
   await $.session.start(start('/proj/a'))
   await seen.clock.settle()
   expect(seen.asked).toHaveLength(1)
@@ -1410,12 +1411,12 @@ test('a saved rule goes into the context of the repository\'s sessions', async (
   expect(answer(await $.tool.call({ tool: SAVE_RULE, rule: ' ' }))).toContain('`rule` is required')
 })
 
-test('/notifly setup starts the analysis whenever asked', async ($, on) => {
+test('/noticely setup starts the analysis whenever asked', async ($, on) => {
   const seen = engine(on)
   await $.session.start(start('/proj/a'))
   await seen.clock.settle()
   const ran = await $.command.run({
-    command: 'notifly',
+    command: 'noticely',
     args: 'setup',
     origin: { kind: 'composer' },
     presentation: { isFullscreen: false, columns: 120 },
@@ -1500,10 +1501,10 @@ test('the Code tab holds 200 comments at most, and none outside a repository', a
   expect((await ui.find({ key: 'tab-code' }))?.text.trim()).toBe('Code 200+')
   await ui.unmount()
 
-  // `/notifly` reads them again.
+  // `/noticely` reads them again.
   seen.grep = null
   await $.command.run({
-    command: 'notifly',
+    command: 'noticely',
     args: '',
     origin: { kind: 'composer' },
     presentation: { isFullscreen: true, columns: 160 },
@@ -1577,4 +1578,18 @@ test('the lists kept under the old name, noticed-issues, come over once, and a k
   seen.oldStores[OLD] = { 'issues:/proj/b': old }
   await $.session.start(start('/proj/a'))
   expect(seen.store.get('issues:/proj/b')).toBeUndefined()
+})
+
+test('a list kept under notifly, the name before this one, wins over the older noticed-issues copy', async ($, on) => {
+  const seen = engine(on)
+  const OLDER = 'noticed-issues_local-plugins-386a963ea5d3.json'
+  const NEWER = 'notifly_local-plugins-1f0c2a7b9d44.json'
+  const older = { nextId: 2, items: [{ id: 1, title: 'Kept from before', createdAt: 0 }] }
+  const newer = { nextId: 3, items: [...older.items, { id: 2, title: 'Noted under notifly', createdAt: 1 }] }
+  seen.oldStores[OLDER] = { 'issues:/proj/a': older }
+  seen.oldStores[NEWER] = { 'issues:/proj/a': newer }
+
+  await $.session.start(start('/proj/a'))
+  expect(seen.store.get('issues:/proj/a')).toEqual(newer)
+  expect(seen.store.get('adoptedFrom')).toEqual([NEWER, OLDER])
 })
