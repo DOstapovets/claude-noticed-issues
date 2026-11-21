@@ -4,7 +4,7 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "package-name": "noticed-issues",
+      "package-name": "notifly",
       "include-component-in-tag": false,
       "bump-minor-pre-major": true,
       "extra-files": [

@@ -7,7 +7,7 @@ import { change } from './store'
 
 // Named here as well as in register.tsx: the engine's scan reads a `$.state`
 // value only from a const of the file that reads it.
-const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
+const issues = atom({ plugin: 'notifly', key: 'issues' } as const, [])
 
 const GITHUB_ISSUE = /https:\/\/\S+\/issues\/\d+/
 

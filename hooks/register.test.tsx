@@ -10,9 +10,9 @@ const RESOLVE = 'mcp__noticed-issues__resolve_issue'
 const answer = (ran: { result?: unknown }) => String(ran.result)
 
 const PANE = {
-  plugin: 'noticed-issues',
+  plugin: 'notifly',
   component: 'Pane',
-  requestId: 'noticed-issues',
+  requestId: 'notifly',
   props: {
     title: 'Notifly',
     isFocused: true,
@@ -24,7 +24,7 @@ const PANE = {
 } as const
 
 const BAND = {
-  plugin: 'noticed-issues',
+  plugin: 'notifly',
   component: 'AbovePrompt',
   props: {
     hasSurvey: false,
@@ -79,7 +79,17 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     // What `$.ui.copy` put on the clipboard; false makes it find none.
     copied: [] as string[],
     clipboard: true,
+    // The store files of the plugin's name before 0.25, by file name, under the config directory.
+    oldStores: {} as Record<string, Record<string, unknown>>,
   }
+  const OLD_STORE_DIR = '/home/.claude/plugins/store'
+  on('fs.list', (_, e) => ({
+    value:
+      e.path === OLD_STORE_DIR
+        ? Object.keys(seen.oldStores).map(name => ({ name, kind: 'file' as const, size: 0, mtimeMs: 0, isLink: false }))
+        : [],
+  }))
+  on('fs.read', (_, e) => ({ value: JSON.stringify(seen.oldStores[e.path.slice(OLD_STORE_DIR.length + 1)] ?? {}) }))
   on('ui.copy', (_, e) => {
     if (!seen.clipboard) return { value: { isCopied: false as const, reason: 'no-clipboard' as const } }
     seen.copied.push(e.text)
@@ -115,6 +125,9 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     value: seen.repo === null ? null : { root: seen.repo, remote: seen.remote, internal: false, name: null },
   }))
   on('process.run', async (_, e) => {
+    if (e.argv[0] === 'sh') {
+      return { value: { exitCode: 0, stdout: '/home/.claude', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    }
     if (e.argv[0] === 'git' && e.argv.includes('grep')) {
       seen.grepped += 1
       return {
@@ -795,7 +808,7 @@ test('each open group scrolls its cards under a heading that stays put', async (
   const scroll = (by: number, row?: number) =>
     $.ui.scroll({
       component: 'Pane',
-      requestId: 'noticed-issues',
+      requestId: 'notifly',
       offset: 0,
       by,
       bodyRows: 40,
@@ -839,7 +852,7 @@ test('off the terminal the groups flow at their own height and the pane scrolls 
   const scroll = () =>
     $.ui.scroll({
       component: 'Pane',
-      requestId: 'noticed-issues',
+      requestId: 'notifly',
       offset: 0,
       by: 1,
       bodyRows: 40,
@@ -1108,7 +1121,7 @@ test('both tools stay in the prompt rather than behind ToolSearch', async ($, on
       tool,
       description: 'd',
       isDeferred: true,
-      provider: { plugin: 'noticed-issues', tier: 'user' },
+      provider: { plugin: 'notifly', tier: 'user' },
     })
     expect(described.isDeferred).toBe(false)
     expect(described.description).toBe('d')
@@ -1162,7 +1175,7 @@ test('outside a repository the list is the directory\'s', async ($, on) => {
 })
 
 const SAVE_RULE = 'mcp__noticed-issues__save_issue_rule'
-const RULE_BLOCK = 'noticedIssuesRule'
+const RULE_BLOCK = 'notiflyRule'
 
 // The blocks the plugin adds to a conversation's context.
 const context = async ($: Engine) => (await $.prompt.context({ blocks: [] })).blocks
@@ -1399,4 +1412,22 @@ test('the experimental Code tab is off until switched on in Settings, beside Fee
   await seen.clock.advance(30_000)
   expect(seen.grepped).toBe(asked)
   await other.unmount()
+})
+
+test('the lists kept under the old name, noticed-issues, come over once, and a key already here stays', async ($, on) => {
+  const seen = engine(on, { collapsed: ['low'] })
+  const OLD = 'noticed-issues_local-plugins-386a963ea5d3.json'
+  const old = { nextId: 2, items: [{ id: 1, title: 'Kept from before', createdAt: 0 }] }
+  seen.oldStores[OLD] = { 'issues:/proj/a': old, collapsed: ['high'] }
+
+  await $.session.start(start('/proj/a'))
+  expect(seen.store.get('issues:/proj/a')).toEqual(old)
+  expect(seen.store.get('collapsed')).toEqual(['low'])
+  expect(seen.store.get('adoptedFrom')).toEqual([OLD])
+  expect(await flag($)).toBe('⚑ 1 issue')
+
+  // Once only: what the old file gains later is not copied.
+  seen.oldStores[OLD] = { 'issues:/proj/b': old }
+  await $.session.start(start('/proj/a'))
+  expect(seen.store.get('issues:/proj/b')).toBeUndefined()
 })

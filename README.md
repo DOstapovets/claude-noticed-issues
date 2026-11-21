@@ -2,7 +2,7 @@
 
 # Notifly
 
-Notifly (installed as `noticed-issues`) is a Claude Code plugin that keeps a per-project list of problems Claude noticed
+Notifly is a Claude Code plugin that keeps a per-project list of problems Claude noticed
 **outside the current task** and is not fixing right now: a bug next door, a leaked
 secret, broken config, a failing check, stale docs. Instead of getting lost in the
 conversation, each finding goes on a list that survives across sessions, grouped by
@@ -14,13 +14,13 @@ GitHub issue and follow its status.
 At the prompt of a Claude Code terminal session:
 
 ```sh
-/plugin install noticed-issues --marketplace DOstapovets/claude-noticed-issues
+/plugin install notifly --marketplace DOstapovets/claude-noticed-issues
 ```
 
 From a shell:
 
 ```sh
-claude plugin install noticed-issues --marketplace DOstapovets/claude-noticed-issues
+claude plugin install notifly --marketplace DOstapovets/claude-noticed-issues
 ```
 
 In the desktop app, where `/plugin` does not run: click **+** next to the prompt box,
@@ -204,7 +204,8 @@ In the plugin's own store, one list per repository, keyed by the root of its mai
 working tree. Every worktree of a repository sees the same list; a separate repository
 nested inside it has its own. Outside a repository, the session's directory is the key.
 Lists that versions before 0.4 kept per worktree are folded into the repository's list
-on first start.
+on first start. Up to 0.24 the plugin was called `noticed-issues`; the lists kept under
+that name are copied over on the first start of Notifly, and the old store file is left as it is.
 
 Each list also keeps the repository's `origin` remote and when it last changed,
 written with every change from 0.22 on, so the Projects tab of another project can

@@ -71,7 +71,7 @@ export type Project = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'noticed-issues': {
+    'notifly': {
       /** This project's open issues, mirrored from `$.store`. */
       issues: Issue[]
       /** The priority groups folded in the pane, mirrored from `$.store` (`collapsed`). */

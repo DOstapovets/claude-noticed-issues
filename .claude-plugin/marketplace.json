@@ -1,12 +1,12 @@
 {
-  "name": "noticed-issues",
+  "name": "notifly",
   "description": "The Notifly plugin for Claude Code",
   "owner": {
     "name": "Dmytro Ostapovets"
   },
   "plugins": [
     {
-      "name": "noticed-issues",
+      "name": "notifly",
       "source": "./",
       "description": "Per-project list of problems Claude noticed outside the current task, grouped by priority; background sessions and GitHub issues per entry"
     }

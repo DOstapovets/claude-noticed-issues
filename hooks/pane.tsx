@@ -14,24 +14,24 @@ import { listTodo, scanTodos, startTodoSession, TAG_LABELS, todoIssues, toggleTo
 // The engine's scan reads a `$.state` value only from a const of the file that
 // reads or writes it, so this module names the atoms it uses; types/index.d.ts
 // declares them once.
-const issues = atom({ plugin: 'noticed-issues', key: 'issues' } as const, [])
+const issues = atom({ plugin: 'notifly', key: 'issues' } as const, [])
 // The priority groups folded in the pane, the same in every project.
-const collapsed = atom({ plugin: 'noticed-issues', key: 'collapsed' } as const, [])
+const collapsed = atom({ plugin: 'notifly', key: 'collapsed' } as const, [])
 // The pane's tab, for this session only.
-const tab = atom({ plugin: 'noticed-issues', key: 'tab' } as const, 'all')
+const tab = atom({ plugin: 'notifly', key: 'tab' } as const, 'all')
 // Every other project's list, and the one open on the Projects tab, for this session only.
-const projects = atom({ plugin: 'noticed-issues', key: 'projects' } as const, [])
-const project = atom({ plugin: 'noticed-issues', key: 'project' } as const, null)
+const projects = atom({ plugin: 'notifly', key: 'projects' } as const, [])
+const project = atom({ plugin: 'notifly', key: 'project' } as const, null)
 // The card whose ✕ asks to confirm, for this session only.
-const deleting = atom({ plugin: 'noticed-issues', key: 'deleting' } as const, null)
+const deleting = atom({ plugin: 'notifly', key: 'deleting' } as const, null)
 // Where each open group is scrolled to, for this session only.
-const scrolled = atom({ plugin: 'noticed-issues', key: 'scrolled' } as const, {})
+const scrolled = atom({ plugin: 'notifly', key: 'scrolled' } as const, {})
 // The time the cards' ages are told from, moved on once a minute.
-const minute = atom({ plugin: 'noticed-issues', key: 'minute' } as const, 0)
+const minute = atom({ plugin: 'notifly', key: 'minute' } as const, 0)
 // The comments in the code, as the last `git grep` found them.
-const todos = atom({ plugin: 'noticed-issues', key: 'todos' } as const, [])
+const todos = atom({ plugin: 'notifly', key: 'todos' } as const, [])
 // The settings, the same in every project.
-const settings = atom({ plugin: 'noticed-issues', key: 'settings' } as const, {})
+const settings = atom({ plugin: 'notifly', key: 'settings' } as const, {})
 
 // What takes `$` here is a function declaration: past an import the scan
 // follows `$` into nothing else.
