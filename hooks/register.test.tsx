@@ -1043,7 +1043,7 @@ test('Feedback starts a session that interviews the user and posts only once the
   expect(seen.argv).toHaveLength(1)
   expect(seen.argv[0]?.slice(0, 2)).toEqual(['claude', '--bg'])
   const text = seen.argv[0]?.[2] ?? ''
-  expect(text).toContain('DOstapovets/claude-noticed-issues')
+  expect(text).toContain('DOstapovets/notifly')
   expect(text).toContain('AskUserQuestion')
   expect(text).toContain('post nothing until I confirm')
   expect(text).toContain('createDiscussion')

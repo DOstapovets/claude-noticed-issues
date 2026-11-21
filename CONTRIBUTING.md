@@ -6,7 +6,7 @@ Thanks for your interest in Notifly.
 
 Open an issue with one of the forms: **Bug report** or **Feature request**. Questions,
 and ideas you would like to talk through first, go to
-[Discussions](https://github.com/DOstapovets/claude-noticed-issues/discussions).
+[Discussions](https://github.com/DOstapovets/notifly/discussions).
 A security problem goes through the **Security** tab, privately; see
 [SECURITY.md](./SECURITY.md).
 

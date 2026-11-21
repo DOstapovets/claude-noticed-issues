@@ -14,17 +14,17 @@ GitHub issue and follow its status.
 At the prompt of a Claude Code terminal session:
 
 ```sh
-/plugin install notifly --marketplace DOstapovets/claude-noticed-issues
+/plugin install notifly --marketplace DOstapovets/notifly
 ```
 
 From a shell:
 
 ```sh
-claude plugin install notifly --marketplace DOstapovets/claude-noticed-issues
+claude plugin install notifly --marketplace DOstapovets/notifly
 ```
 
 In the desktop app, where `/plugin` does not run: click **+** next to the prompt box,
-then **Plugins**, **Add marketplace** with `DOstapovets/claude-noticed-issues`, then **Add plugin**.
+then **Plugins**, **Add marketplace** with `DOstapovets/notifly`, then **Add plugin**.
 
 Then tell Claude to use it. The first session in each repository offers to work out
 a rule for that repository (see [Repository rule](#repository-rule)). For every
@@ -236,9 +236,9 @@ commit, version and PR conventions in [docs/git_and_pr_conventions.md](./docs/gi
 ## Feedback
 
 Found a bug or want something changed? Press **✎ Feedback** in the pane, or
-[open an issue](https://github.com/DOstapovets/claude-noticed-issues/issues/new/choose)
+[open an issue](https://github.com/DOstapovets/notifly/issues/new/choose)
 with the **Bug report** or **Feature request** form. Questions go to
-[Discussions](https://github.com/DOstapovets/claude-noticed-issues/discussions), security
+[Discussions](https://github.com/DOstapovets/notifly/discussions), security
 problems to the private report described in [SECURITY.md](./SECURITY.md). Pull requests:
 see [CONTRIBUTING.md](./CONTRIBUTING.md).
 

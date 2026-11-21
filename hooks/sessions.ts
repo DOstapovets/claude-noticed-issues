@@ -63,7 +63,7 @@ export async function startSession($: Api, id: number) {
 }
 
 // Where reports about the plugin itself go.
-const PLUGIN_REPO = 'DOstapovets/claude-noticed-issues'
+const PLUGIN_REPO = 'DOstapovets/notifly'
 
 // Where feedback was started from, as the bug report's "Where you run Claude Code" names it.
 // A background session draws nowhere, so it cannot tell this itself.
