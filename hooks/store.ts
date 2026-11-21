@@ -52,8 +52,9 @@ async function loadBoth($: Api) {
   session.nextId = Math.max(session.nextId, stored?.nextId ?? 1)
   const list = Array.isArray(stored?.items) ? stored.items : []
   const done = await kept($, Array.isArray(stored?.done) ? stored.done : [])
-  await update($, issues, () => list)
-  await update($, completed, () => done)
+  // Every write redraws the pane and the count: a reload that finds the lists as they were writes nothing.
+  if (JSON.stringify(await read($, issues)) !== JSON.stringify(list)) await update($, issues, () => list)
+  if (JSON.stringify(await read($, completed)) !== JSON.stringify(done)) await update($, completed, () => done)
 
   return { list, done }
 }
@@ -175,7 +176,7 @@ export async function loadProjects($: Api) {
       (b.updatedAt ?? 0) - (a.updatedAt ?? 0) ||
       a.root.localeCompare(b.root),
   )
-  await update($, projects, () => found)
+  if (JSON.stringify(await read($, projects)) !== JSON.stringify(found)) await update($, projects, () => found)
 
   return found
 }
