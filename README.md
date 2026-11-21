@@ -49,6 +49,8 @@ Call `resolve_issue` once such an issue is fixed.
 | `resolve_issue` | Moves an entry, by its `id`, off the list to the **Completed** tab once it is fixed or no longer relevant. |
 | `save_issue_rule` | Saves the [repository rule](#repository-rule), `rule`, cut to 4000 characters. Behind ToolSearch, as only the setup session calls it. |
 
+Under a `note_issue` or `resolve_issue` row in the transcript, the answer is green when the list changed (noted, added to, resolved) and yellow when it did not.
+
 **A count above the prompt**, `⚑ 3 issues`, that opens the pane when pressed. Once the
 current session has noted something it says how many, `⚑ 3 issues · 1 this session`. It is
 hidden while the list is empty, and any band another plugin draws there stays below it.

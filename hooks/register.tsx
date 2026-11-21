@@ -358,6 +358,20 @@ export const register: Register = (on, options) => {
     )
   })
 
+  // The answer of note_issue and resolve_issue under their row: green when the
+  // list changed, yellow when it did not. Anything else is the engine's own.
+  on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
+    const { tool, output, isErrored } = e.props
+
+    if ((tool !== NOTE && tool !== RESOLVE) || isErrored || typeof output !== 'string') {
+      return next(e)
+    }
+
+    const { Text } = $.ui.resolve(e)
+
+    return <Text color={/^(Noted|Added to|Resolved) /.test(output) ? 'success' : 'warning'}>{output}</Text>
+  })
+
   // The wheel, or the scroll keys, move the open group under the pointer (the
   // first open one for the keys) a card at a time; the pane itself stays put.
   // Elsewhere (VS Code, desktop, mobile), and on the list of projects, the groups

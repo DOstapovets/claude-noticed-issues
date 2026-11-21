@@ -373,6 +373,40 @@ test('changes made at the same moment in one session all land, each issue at a n
   expect(kept.nextId).toBe(5)
 })
 
+test('the answer under a note_issue or resolve_issue row is green when the list changed, yellow when not', async ($, on) => {
+  engine(on)
+  // The engine's own result block, which other tools keep.
+  on('ui.render', { component: 'ToolResult' }, ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  await $.session.start(start('/proj/a'))
+
+  const shown = async (tool: string, ran: { result?: unknown }) => {
+    const ui = await $.ui.mount({
+      plugin: 'noticely',
+      component: 'ToolResult',
+      surface: 'terminal',
+      props: { tool_use_id: 't1', tool, output: ran.result, isErrored: false },
+    })
+    const text = (await ui.findAll({ type: 'Text' }))[0]
+    await ui.unmount()
+    return [text?.text, text?.props.color]
+  }
+
+  expect(await shown(NOTE, await $.tool.call({ tool: NOTE, title: 'Stale cache' }))).toEqual([
+    'Noted as #1; the user sees it under /noticely.',
+    'success',
+  ])
+  expect(await shown(NOTE, await $.tool.call({ tool: NOTE, title: 'stale cache' }))).toEqual([
+    'Already on the list as #1.',
+    'warning',
+  ])
+  expect(await shown(RESOLVE, await $.tool.call({ tool: RESOLVE, id: 1 }))).toEqual(['Resolved #1.', 'success'])
+  expect(await shown(RESOLVE, await $.tool.call({ tool: RESOLVE, id: 1 }))).toEqual(['No open issue #1.', 'warning'])
+  expect(await shown('Bash', { result: 'Noted as #1' })).toEqual(['engine', undefined])
+})
+
 test('an issue is resolved only by its number', async ($, on) => {
   engine(on, { 'issues:/proj/a': { nextId: 2, items: 'not a list' } })
   await $.session.start(start('/proj/a'))
