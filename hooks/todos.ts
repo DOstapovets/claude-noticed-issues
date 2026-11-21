@@ -26,10 +26,21 @@ const TAG = /(?:\/\/|#|\/\*|^\s*\*|--|<!--|;)\s*(TODO|FIXME|HACK|XXX)(?![A-Za-z0
 // Where a comment opened on the line closes, and what follows on it.
 const CLOSE = /\s*(\*\/|-->).*$/
 
-// Whether `at` is inside a string: before it, an odd count of one kind of quote, not counting escaped ones.
-const inString = (code: string, at: number) => {
-  const before = code.slice(0, at).replace(/\\./g, '')
-  return ["'", '"', '`'].some(quote => before.split(quote).length % 2 === 0)
+// The first of `found` outside a string: before it, an even count of each kind
+// of quote, not counting escaped ones. The line is walked once for all of them,
+// so a minified line of strings of tags takes time that grows with its length.
+const outsideStrings = (code: string, found: RegExpExecArray[]) => {
+  const odd: Record<string, boolean> = { "'": false, '"': false, '`': false }
+  let i = 0
+
+  for (const match of found) {
+    for (; i < match.index; i++) {
+      // An escaped character, quote or not, counts for nothing.
+      if (code[i] === '\\') i++
+      else if (code[i]! in odd) odd[code[i]!] = !odd[code[i]!]
+    }
+    if (!odd["'"] && !odd['"'] && !odd['`']) return match
+  }
 }
 
 // The Code tab holds this many at most and says when there were more.
@@ -45,7 +56,7 @@ export const parseTodos = (stdout: string) =>
   stdout.split('\n').flatMap((row): Todo[] => {
     const [, file, line, code = ''] = row.match(ROW) ?? []
     // The first tag outside a string: a test's fixture is not a comment.
-    const found = [...code.matchAll(TAG)].find(m => !inString(code, m.index))
+    const found = outsideStrings(code, [...code.matchAll(TAG)])
 
     if (!file || !found) {
       return []
@@ -84,7 +95,9 @@ export async function scanTodos($: Api) {
   // 1: nothing found.
   const found = ran?.exitCode === 0 ? parseTodos(ran.stdout) : []
   session.todosCut = found.length > TODO_LIMIT || ran?.isStdoutTruncated === true
-  await update($, todos, () => found.slice(0, TODO_LIMIT))
+  const kept = found.slice(0, TODO_LIMIT)
+  // Every write redraws the pane: a scan that finds the comments as they were writes nothing.
+  if (JSON.stringify(await read($, todos)) !== JSON.stringify(kept)) await update($, todos, () => kept)
 }
 
 // Turned on, the comments are read at once; turned off, the tab goes.

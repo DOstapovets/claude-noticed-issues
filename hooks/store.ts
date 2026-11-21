@@ -1,4 +1,4 @@
-import { atom, update } from 'claude-code'
+import { atom, read, update } from 'claude-code'
 
 import type { Issue, Priority, Project, Stored } from '../types'
 import { session } from './context'
@@ -35,7 +35,8 @@ export async function load($: Api) {
   const stored = (await $.store.get(session.storeKey)) as Stored | undefined
   session.nextId = Math.max(session.nextId, stored?.nextId ?? 1)
   const list = Array.isArray(stored?.items) ? stored.items : []
-  await update($, issues, () => list)
+  // Every write redraws the pane and the count: a reload that finds the list as it was writes nothing.
+  if (JSON.stringify(await read($, issues)) !== JSON.stringify(list)) await update($, issues, () => list)
 
   return list
 }
@@ -132,7 +133,7 @@ export async function loadProjects($: Api) {
       (b.updatedAt ?? 0) - (a.updatedAt ?? 0) ||
       a.root.localeCompare(b.root),
   )
-  await update($, projects, () => found)
+  if (JSON.stringify(await read($, projects)) !== JSON.stringify(found)) await update($, projects, () => found)
 
   return found
 }

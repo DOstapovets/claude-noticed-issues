@@ -46,13 +46,21 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     get: (key: string) => (store.has(key) ? JSON.parse(store.get(key)!) : undefined),
     set: (key: string, value: unknown) => void store.set(key, JSON.stringify(value)),
   }
-  on('store.get', (_, e) => ({ value: kept.get(e.key) }))
-  on('store.set', (_, e) => ({ value: kept.set(e.key, e.value) }))
+  // How many times each `$.store` key was read and written: every call reads or rewrites the whole file.
+  const calls = { get: {} as Record<string, number>, set: {} as Record<string, number> }
+  const tally = (of: Record<string, number>, key: string) => void (of[key] = (of[key] ?? 0) + 1)
+  on('store.get', (_, e) => (tally(calls.get, e.key), { value: kept.get(e.key) }))
+  on('store.set', (_, e) => (tally(calls.set, e.key), { value: kept.set(e.key, e.value) }))
   on('store.delete', (_, e) => ({ value: void store.delete(e.key) }))
   on('store.keys', () => ({ value: [...store.keys()] }))
+  // How many times each `$.state` value was written: every write redraws whatever read it.
+  const written = {} as Record<string, number>
+  on('state.set', (_, e, next) => (tally(written, e.key), next(e)))
   const seen = {
     clock,
     store: kept,
+    calls,
+    written,
     toasts: [] as string[],
     opened: 0,
     argv: [] as (readonly string[])[],
@@ -68,6 +76,8 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     // A function answers per URL.
     github: { state: 'OPEN', projectItems: [] } as unknown,
     viewed: [] as string[],
+    // What `gh issue view` waits for before it answers.
+    viewHold: undefined as Promise<void> | undefined,
     // What `session.id` answers.
     session: 'session-a',
     // What `session.surfaces` answers.
@@ -165,6 +175,7 @@ const engine = (on: On, stored?: Record<string, unknown>) => {
     }
     if (e.argv[0] === 'gh' && e.argv[2] === 'view') {
       seen.viewed.push(e.argv[3] ?? '')
+      await seen.viewHold
       return {
         value: {
           exitCode: 0,
@@ -1643,4 +1654,99 @@ test('a list kept under notifly, the name before this one, wins over the older n
   await $.session.start(start('/proj/a'))
   expect(seen.store.get('issues:/proj/a')).toEqual(newer)
   expect(seen.store.get('adoptedFrom')).toEqual([NEWER, OLDER])
+})
+
+// What the plugin costs while nothing happens, and per action: every `$.store`
+// call reads or rewrites one JSON file that holds every project's list, and
+// every `$.state` write redraws the pane and the count.
+const zero = (of: Record<string, number>) => Object.fromEntries(Object.keys(of).map(key => [key, 0]))
+
+test('a reload that finds nothing new writes nothing, so nothing is drawn again', async ($, on) => {
+  const seen = engine(on, {
+    settings: { todos: true },
+    'issues:/proj/b': { nextId: 2, items: [{ id: 1, title: 'Leak in b', createdAt: 1 }] },
+  })
+  seen.grep = 'src/a.ts:3:  // TODO: cache the result'
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await seen.clock.settle()
+
+  for (const tab of ['tab-all', 'tab-projects', 'tab-code']) {
+    await ui.press({ key: tab })
+    await seen.clock.settle()
+    Object.assign(seen.written, zero(seen.written))
+    await seen.clock.advance(3 * 30_000)
+    expect([tab, seen.written.issues ?? 0, seen.written.projects ?? 0, seen.written.todos ?? 0]).toEqual([tab, 0, 0, 0])
+  }
+  await ui.unmount()
+})
+
+test('each reload reads the list once, and every other project only while their tab is open', async ($, on) => {
+  const others = Object.fromEntries(
+    Array.from({ length: 20 }, (_, i) => [`issues:/proj/o${i}`, { nextId: 2, items: [{ id: 1, title: `In ${i}`, createdAt: 1 }] }]),
+  )
+  const seen = engine(on, others)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await seen.clock.settle()
+
+  const reads = () => Object.values(seen.calls.get).reduce((a, b) => a + b, 0)
+  let was = reads()
+  await seen.clock.advance(30_000)
+  expect(reads() - was).toBe(1)
+  expect(seen.calls.get['issues:/proj/o0']).toBe(1)
+
+  // The Projects tab: the list, then each of the 20 others once a reload.
+  await ui.press({ key: 'tab-projects' })
+  await seen.clock.settle()
+  was = reads()
+  await seen.clock.advance(30_000)
+  expect(reads() - was).toBe(1 + 20)
+  await ui.unmount()
+})
+
+test('a resolve and a press each read the list once and write it once, a note reads it twice', async ($, on) => {
+  const seen = engine(on)
+  await $.session.start(start('/proj/a'))
+  await $.tool.call({ tool: NOTE, title: 'Stale playwright cache' })
+  const KEY = 'issues:/proj/a'
+  const cost = async (act: () => Promise<unknown>) => {
+    const read = seen.calls.get[KEY] ?? 0
+    const wrote = seen.calls.set[KEY] ?? 0
+    await act()
+    return [(seen.calls.get[KEY] ?? 0) - read, (seen.calls.set[KEY] ?? 0) - wrote]
+  }
+
+  // A note reads it for near duplicates, then again to add the issue, both from what other sessions saved.
+  expect(await cost(() => $.tool.call({ tool: NOTE, title: 'Jest gate red on master' }))).toEqual([2, 1])
+  // The same title again: read, not written.
+  expect(await cost(() => $.tool.call({ tool: NOTE, title: 'jest gate red on master' }))).toEqual([2, 0])
+  expect(await cost(() => $.tool.call({ tool: RESOLVE, id: 1 }))).toEqual([1, 1])
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await cost(() => ui.press({ key: 'lower-2' }))).toEqual([1, 1])
+  await ui.unmount()
+})
+
+test('a GitHub pass asks gh once for each linked issue, and a pass is not started while one runs', GITHUB_ON, async ($, on) => {
+  const linked = Array.from({ length: 10 }, (_, i) => ({
+    id: i + 1,
+    title: `Linked ${i + 1}`,
+    createdAt: 1,
+    githubUrl: `https://github.com/o/r/issues/${i + 1}`,
+  }))
+  const seen = engine(on, {
+    'issues:/proj/a': { nextId: 12, items: [...linked, { id: 11, title: 'Not linked', createdAt: 1 }] },
+  })
+  let release = () => {}
+  seen.viewHold = new Promise<void>(resolve => (release = resolve))
+  await $.session.start(start('/proj/a'))
+  // The first pass waits on gh; two more five-minute ticks come meanwhile and start none.
+  await seen.clock.advance(2 * 5 * 60_000)
+  expect(seen.viewed).toHaveLength(1)
+  release()
+  await seen.clock.settle()
+  expect(seen.viewed).toHaveLength(10)
+  expect(new Set(seen.viewed).size).toBe(10)
 })
